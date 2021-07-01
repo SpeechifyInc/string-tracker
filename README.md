@@ -24,11 +24,11 @@ stringTracker = stringTracker.remove(4, 9)
 stringTracker.get() // hefoworld
 ```
 
-## `createStringTracker(originalText: string, { initialModified?: string, initialChanges?: Change[] }): StringTracker`
+#### `createStringTracker(originalText: string, { initialModified?: string, initialChanges?: Change[] }): StringTracker`
 
 Used to create a new instance of the string tracker. The second argument is used internally for creating new trackers on add and remove operations.
 
-## `add(index: number, text: string): StringTracker`
+#### `add(index: number, text: string): StringTracker`
 
 Pushes all characters at and after the index forward and places a new Add change at the index. Does not modify the existing StringTracker. Returns a new StringTracker
 
@@ -39,7 +39,7 @@ stringTracker = stringTracker.add(3, " hello")
 stringTracker.get() // foo hello bar
 ```
 
-## `remove(startIndex: number, endIndex?: number): StringTracker`
+#### `remove(startIndex: number, endIndex?: number): StringTracker`
 
 Removes all characters from the startIndex to the endIndex (non-inclusive).
 
@@ -50,7 +50,7 @@ stringTracker = stringTracker.remove(3, 5)
 stringTracker.get() // fooar
 ```
 
-## `get(): string`
+#### `get(): string`
 
 Returns the modified string
 
@@ -61,7 +61,7 @@ stringTracker = stringTracker.remove(3, 5)
 stringTracker.get() // fooar
 ```
 
-## `getOriginal(): string`
+#### `getOriginal(): string`
 
 Returns the original string
 
@@ -72,7 +72,7 @@ stringTracker = stringTracker.remove(3, 5)
 stringTracker.getOriginal() // foo bar
 ```
 
-## `getIndexOnOriginal(index: number): number`
+#### `getIndexOnOriginal(index: number): number`
 
 Returns the index of the character on the original string for mapping Modified -> Original.
 
@@ -84,7 +84,7 @@ stringTracker.get() // fooar
 stringTracker.getIndexOnOriginal(4) // Refers to the 'a' in 'fooar'. 4 + 2 (because of remove) = 6
 ```
 
-## `getIndexOnModified(index: number): number`
+#### `getIndexOnModified(index: number): number`
 
 Returns the index of the character on the original string for mapping Modified -> Original.
 
