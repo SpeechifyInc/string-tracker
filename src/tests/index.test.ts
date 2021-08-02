@@ -1,4 +1,4 @@
-import { createStringTracker, StringTracker } from "./index";
+import { createStringTracker, StringTracker } from "../index";
 
 const str1 = "this is my word";
 
@@ -111,3 +111,12 @@ test("remove from end of string to end", () => {
   expect(trackedStr8.getIndexOnOriginal(14)).toBe(13);
   expect(trackedStr8.getIndexOnModified(14)).toBe(14); // 14 -> 'd' in 'word'
 });
+
+
+// 'hello world'
+
+// ['hello world']
+
+// ['hell', ['add', 'ee'], 'o world']
+
+// ['hell', ['add', 'ee'], 'o w', ['remove', 'or'], 'ld']
