@@ -5,9 +5,8 @@
     "moduleResolution": "node",
     "target": "ES6",
     "lib": ["ES2020", "ES2021"],
-    "outDir": "dist",
     "sourceMap": true,
-    "declaration": true
+    "declaration": true,
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
