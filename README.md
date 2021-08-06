@@ -121,7 +121,7 @@ The StringTracker includes implementations for every prototype function that wou
 - `trim(): StringTracker`
 - `trimStart(): StringTracker`
 - `trimEnd(): StringTracker`
-- `padStart(): StringTracker`
-- `padEnd(): StringTracker`
+- `padStart(maxLength: number, fillString?: string): StringTracker`
+- `padEnd(maxLength: number, fillString?: string): StringTracker`
 
 Any missing functions will be added before 1.0 release
