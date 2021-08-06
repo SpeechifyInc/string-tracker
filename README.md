@@ -78,6 +78,12 @@ stringTracker = stringTracker.remove(3, 5)
 stringTracker.getOriginal() // foo bar
 ```
 
+#### `getChanges(): Change[]`
+
+Returns the an array of the internal changes. Examples of what this looks for specific strings can be found at the beginning of the README.
+
+`["he", [StringOp.Add, "fo"], [StringOp.Remove, "llo "] "world"]`
+
 #### `getIndexOnOriginal(index: number): number`
 
 Returns the index of the character on the original string for mapping Modified -> Original.
@@ -101,3 +107,19 @@ stringTracker = stringTracker.remove(3, 5)
 stringTracker.get() // fooar
 stringTracker.getIndexOnOriginal(6) // Refers to the 'a' in 'fooar'. 6 - 2 (because of remove) = 4
 ```
+
+## String Prototype functions
+
+The StringTracker includes implementations for every prototype function that would return a new string. Test262 tests are used for development to maintain spec compliance and anything deviates from the spec should be considered a bug. Any string prototype functions that do not return a new string are passed through to the original prototype function via a Proxy. The following functions are currently implemented:
+
+- `slice(startIndex?: number, endIndex?: number): StringTracker`
+- `concat(...trackers: StringTracker[]): StringTracker`
+- `replace(searchValue: string | RegExp, replacer: string | ((substring: string, ...args: any[]) => string)): StringTracker`
+- `replaceAll(searchValue: string | RegExp, replacer: string | ((substring: string, ...args: any[]) => string)): StringTracker`
+- `trim(): StringTracker`
+- `trimStart(): StringTracker`
+- `trimEnd(): StringTracker`
+- `padStart(): StringTracker`
+- `padEnd(): StringTracker`
+
+Any missing functions will be added before 1.0 release
