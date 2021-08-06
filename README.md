@@ -1,11 +1,13 @@
 # String Tracker
-A library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a list of add, remove and regular string changes. The array starts as the following
+A library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a list of add, remove and regular string changes.
 
 ## This Project is WIP
 
 - [ ] 100% coverage using Test262 alongside manual tests
-- [ ] Fuzzer based testing
-- [ ] Performance testing and optimization
+- [ ] Fuzzing
+- [ ] Performance testing and associated optimization
+
+## How it works
 
 ```js
 const text = "hello world"
