@@ -4,8 +4,10 @@ A library for operating on strings while maintaining changes and index maps tran
 ## This Project is WIP
 
 - [ ] 100% coverage using Test262 alongside manual tests
-- [ ] Fuzzer based testing
-- [ ] Performance testing and optimization
+- [ ] Fuzzing
+- [ ] Performance testing and associated optimization
+
+## How it works
 
 ```js
 const text = "hello world"
