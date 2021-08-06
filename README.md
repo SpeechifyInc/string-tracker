@@ -1,5 +1,5 @@
 # String Tracker
-A library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a list of add, remove and regular string changes. The array starts as the following
+A library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a list of add, remove and regular string changes.
 
 ## This Project is WIP
 
