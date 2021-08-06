@@ -23,10 +23,12 @@ export const StringTrackerSymbol = Symbol.for('string-tracker')
 type StringTrackerBase = {
   get: () => string
   getOriginal: () => string
+  getChanges: () => Change[]
   getIndexOnModified: (index: number) => number
   getIndexOnOriginal: (index: number) => number
   add: (index: number, text: string) => StringTracker
   remove: (startIndex: number, endIndex?: number) => StringTracker
+  concat: (...trackers: StringTracker[]) => StringTracker
   slice: (startIndex?: number, endIndex?: number) => StringTracker
   replace: typeof replace
   replaceAll: typeof replaceAll
@@ -51,7 +53,7 @@ enum StringOp {
   Remove,
 }
 
-type Change = [StringOp, string] | string
+export type Change = [StringOp, string] | string
 
 const isAdd = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Add
 const isRemove = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Remove
@@ -60,9 +62,9 @@ const getChangeLength = (change: Change) => getChangeText(change).length
 
 const cleanChanges = (changes: Change[]): Change[] => {
   const newChanges = changes.reduce<Change[]>((newChanges, change, i) => {
-    if (!getChangeLength(change)) return newChanges
+    if (getChangeLength(change) === 0) return newChanges
     const lastChange = changes[i - 1]
-    if (!lastChange) return [change] as Change[]
+    if (lastChange === undefined) return [change] as Change[]
     if (typeof lastChange === 'string' && typeof change === 'string')
       return [...newChanges.slice(0, -1), lastChange + change]
     if ((isAdd(lastChange) && isAdd(change)) || (isRemove(lastChange) && isRemove(change)))
@@ -70,12 +72,11 @@ const cleanChanges = (changes: Change[]): Change[] => {
         ...newChanges.slice(0, -1),
         [lastChange[0], getChangeText(lastChange) + getChangeText(change)],
       ] as Change[]
-    newChanges.push(change)
-    return newChanges
+    return [...newChanges, change]
   }, [])
 
   // Special case since we never want to have an empty array of changes
-  if (newChanges.length === 0) return ['']
+  if (newChanges.filter((change) => !isRemove(change)).length === 0) return ['']
   return newChanges
 }
 
@@ -119,6 +120,7 @@ export function createStringTracker(
 
   const get = () => modifiedStr
   const getOriginal = () => str
+  const getChanges = () => changes
 
   const getIndexOfChange = (targetIndex: number, shouldSkipChange: (change: Change) => boolean = isRemove) => {
     let index = 0
@@ -345,14 +347,27 @@ export function createStringTracker(
     })
   }
 
+  /**
+   * Concatenates StringTracker arguments to the calling StringTracker and returns a new StringTracker
+   * @param trackers One or more StringTracker to concatenate to calling StringTracker
+   */
+  const concat = (...trackers: StringTracker[]): StringTracker => {
+    const newChanges = [...changes, ...trackers.flatMap((tracker) => tracker.getChanges())]
+    const newModifiedStr = modifiedStr.concat(...trackers.map((tracker) => tracker.get()))
+    const newStr = str.concat(...trackers.map((tracker) => tracker.getOriginal()))
+    return createStringTracker(newStr, { initialModified: newModifiedStr, initialChanges: newChanges })
+  }
+
   const tracker: StringTracker = new Proxy<StringTrackerBase>(
     {
       get,
       getOriginal,
+      getChanges,
       getIndexOnModified,
       getIndexOnOriginal,
       add,
       remove,
+      concat,
       slice,
       replace,
       replaceAll,
