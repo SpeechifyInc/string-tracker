@@ -62,21 +62,28 @@ const getChangeLength = (change: Change) => getChangeText(change).length
 
 const cleanChanges = (changes: Change[]): Change[] => {
   const newChanges = changes.reduce<Change[]>((newChanges, change, i) => {
+    // Remove empty changes
     if (getChangeLength(change) === 0) return newChanges
-    const lastChange = changes[i - 1]
+
+    const lastChange = newChanges.slice(-1)[0]
+    // Handle first iteration
     if (lastChange === undefined) return [change] as Change[]
+
+    // Combine two string changes next to each other
     if (typeof lastChange === 'string' && typeof change === 'string')
       return [...newChanges.slice(0, -1), lastChange + change]
+    // Combine two StringOp changes next to each other
     if ((isAdd(lastChange) && isAdd(change)) || (isRemove(lastChange) && isRemove(change)))
       return [
         ...newChanges.slice(0, -1),
         [lastChange[0], getChangeText(lastChange) + getChangeText(change)],
       ] as Change[]
+    // Add change
     return [...newChanges, change]
   }, [])
 
   // Special case since we never want to have an empty array of changes
-  if (newChanges.filter((change) => !isRemove(change)).length === 0) return ['']
+  if (newChanges.filter((change) => !isRemove(change)).length === 0) return ['', ...newChanges]
   return newChanges
 }
 
