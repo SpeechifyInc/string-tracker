@@ -1,3 +1,8 @@
+<p>
+  <img src="https://img.shields.io/static/v1?label=npm&message=0.0.1-rc1&color=success&style=flat-square">
+  <img src="https://img.shields.io/static/v1?label=coverage&message=77.5%25&color=yellow&style=flat-square">
+</p>
+
 # String Tracker
 A library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a list of add, remove and regular string changes.
 
