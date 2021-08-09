@@ -48,7 +48,7 @@ type StringPrototype = {
 
 export type StringTracker = StringTrackerBase & StringPrototype & { length: number }
 
-enum StringOp {
+export enum StringOp {
   Add,
   Remove,
 }
@@ -122,14 +122,15 @@ export function createStringTracker(
   str: string,
   { initialModified = str, initialChanges = [str] }: { initialModified?: string; initialChanges?: Change[] } = {}
 ): StringTracker {
-  let modifiedStr = initialModified
-  let changes: Change[] = initialChanges
+  const modifiedStr = initialModified
+  const changes: Change[] = initialChanges
 
   const get = () => modifiedStr
   const getOriginal = () => str
   const getChanges = () => changes
 
   const getIndexOfChange = (targetIndex: number, shouldSkipChange: (change: Change) => boolean = isRemove) => {
+    // If only JS had find with accumulator (transduce)...
     let index = 0
     for (const [i, change] of Object.entries(changes)) {
       if (shouldSkipChange(change)) continue
@@ -182,14 +183,16 @@ export function createStringTracker(
 
     // We only need to check the beginning and middle since the offset can only be
     // equal to the length of the string when we are at the end of the string
-    // ex. ['hello', 'world']. Add at index of 0 would mean
-    // (offset: 0, changeIndex: 0) we are cutting like ['addhere', 'hello', 'world']
-    // ex. ['hello', 'world']. Add at index of 4 would mean
-    // (offset: 4, changeIndex: 0) we are cutting like ['hell', 'addhere', 'o', 'world']
-    // ex. ['hello', 'world']. Add at index of 5 would mean
-    // (offset: 0, changeIndex: 1) we are cutting like ['hello', 'addhere', 'world']
+    // ex. ['hello world']. Add at index of 0 would mean
+    // (offset: 0, changeIndex: 0) we are cutting like [[Add, 'addhere'], 'hello world']
+    // ex. ['hello world']. Add at index of 4 would mean
+    // (offset: 4, changeIndex: 0) we are cutting like ['hell', [Add, 'addhere'], 'o world']
+    // ex. ['hello', 'world']. Add at index of 5 would mean...
+    // (offset: 0, changeIndex: 1) we are cutting like ['hello', [Add, 'addhere'], 'world']
+    // ^^ Fyi this initial changes array isn't actually possible and only used for example
+    // since identical change types get combined during cleanChanges
     // ex. ['hello, 'world']. Add at index of 10 would mean
-    // (offset: 5, changeIndex: 1) we are cutting like ['hello', 'addhere', 'world']
+    // (offset: 5, changeIndex: 1) we are cutting like ['hello', 'world', [Add, 'addhere']]
 
     // If the previous was a remove, we try to find the overlap on what we're adding
     // to prevent adding and removing the same piece of text filling up the changes
@@ -215,7 +218,7 @@ export function createStringTracker(
         newChanges = addChange(newChanges, changeIndex + 1, [StringOp.Add, text])
         newChanges = addChange(newChanges, changeIndex + 2, currentChange.slice(offset))
       }
-      // Inferred that it's an Add
+      // Inferred that it's an Add because currentChange cannot be a Remove
       else {
         const currentText = getChangeText(currentChange)
         replaceChangeText(newChanges, changeIndex, currentText.slice(0, offset) + text + currentText.slice(offset))
@@ -231,9 +234,9 @@ export function createStringTracker(
   }
 
   const remove = (startIndex: number, endIndex: number = modifiedStr.length) => {
-    if (startIndex > endIndex) throw new Error('startIndex must be less than or equal to endIndex')
+    if (startIndex > endIndex) throw new RangeError('startIndex must be less than or equal to endIndex')
     if (endIndex > modifiedStr.length)
-      throw new Error('endIndex must be less than or equal to the length of the modified string')
+      throw new RangeError('endIndex must be less than or equal to the length of the modified string')
 
     const newModifiedStr = modifiedStr.slice(0, startIndex) + modifiedStr.slice(endIndex)
 
@@ -284,7 +287,7 @@ export function createStringTracker(
       if (typeof currentChange === 'string') {
         newChanges = addChange(newChanges, changeIndex, [StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
       }
-      if (changes[changeIndex + 1]) {
+      if (newChanges[changeIndex + 1]) {
         replaceChangeText(newChanges, changeIndex + 1, currentText.slice(endIndex - startIndex))
       }
 
