@@ -1,0 +1,4 @@
+coverage/
+fix-up.sh
+jest.config.js
+.prettierrc
