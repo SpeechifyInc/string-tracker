@@ -280,15 +280,23 @@ export function createStringTracker(
 
     // Loop until we no longer need to remove
     for (changeIndex++; startIndex < endIndex; changeIndex++) {
-      const currentChange = changes[changeIndex]
+      const currentChange = newChanges[changeIndex]
       if (!currentChange) break
       if (isRemove(currentChange)) continue
+
       const currentText = getChangeText(currentChange)
+      // Add the remove change for tracking and adjust the string for what we removed
       if (typeof currentChange === 'string') {
         newChanges = addChange(newChanges, changeIndex, [StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
+        changeIndex++
+        if (newChanges[changeIndex]) {
+          replaceChangeText(newChanges, changeIndex, currentText.slice(endIndex - startIndex))
+        }
       }
-      if (newChanges[changeIndex + 1]) {
-        replaceChangeText(newChanges, changeIndex + 1, currentText.slice(endIndex - startIndex))
+      // Inferred that it's an Add. We only need to remove content with no need to track since this content
+      // isn't on the original string
+      else {
+        replaceChangeText(newChanges, changeIndex, currentText.slice(endIndex - startIndex))
       }
 
       startIndex += currentText.length
