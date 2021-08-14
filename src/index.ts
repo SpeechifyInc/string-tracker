@@ -15,8 +15,34 @@
 // For slice, don't include removed but include in index, include added but don't count in index <-- unpredictable length
 // For slice, don't include removed and don't include in index, include added and count in index <-- predictable length
 
-import { toNumber } from './helpers'
-import { replace, replaceAll, trim, trimStart, trimEnd, padStart, padEnd } from './prototype-impl'
+import {
+  addChange,
+  cleanChanges,
+  getChangeLength,
+  getChangeText,
+  getOverlap,
+  isAdd,
+  isRemove,
+  replaceChange,
+  replaceChangeText,
+  sliceChange,
+  toNumber,
+} from './helpers'
+import {
+  split,
+  substring,
+  substr,
+  replace,
+  replaceAll,
+  trim,
+  trimStart,
+  trimEnd,
+  padStart,
+  padEnd,
+  toLowerCaseTracker,
+  toUpperCaseTracker,
+  repeat,
+} from './prototype-impl'
 
 export const StringTrackerSymbol = Symbol.for('string-tracker')
 
@@ -30,6 +56,10 @@ type StringTrackerBase = {
   remove: (startIndex: number, endIndex?: number) => StringTracker
   concat: (...trackers: StringTracker[]) => StringTracker
   slice: (startIndex?: number, endIndex?: number) => StringTracker
+  split: typeof split
+  substring: typeof substring
+  substr: typeof substr
+  repeat: typeof repeat
   replace: typeof replace
   replaceAll: typeof replaceAll
   trim: typeof trim
@@ -37,6 +67,8 @@ type StringTrackerBase = {
   trimEnd: typeof trimEnd
   padStart: typeof padStart
   padEnd: typeof padEnd
+  toLowerCaseTracker: typeof toLowerCaseTracker
+  toUpperCaseTracker: typeof toUpperCaseTracker
   toString: String['toString']
   [Symbol.iterator]: String[typeof Symbol.iterator]
   [StringTrackerSymbol]: true
@@ -54,69 +86,6 @@ export enum StringOp {
 }
 
 export type Change = [StringOp, string] | string
-
-const isAdd = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Add
-const isRemove = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Remove
-const getChangeText = (change: Change): string => (typeof change === 'string' ? change : change[1])
-const getChangeLength = (change: Change) => getChangeText(change).length
-
-const cleanChanges = (changes: Change[]): Change[] => {
-  const newChanges = changes.reduce<Change[]>((newChanges, change, i) => {
-    // Remove empty changes
-    if (getChangeLength(change) === 0) return newChanges
-
-    const lastChange = newChanges.slice(-1)[0]
-    // Handle first iteration
-    if (lastChange === undefined) return [change] as Change[]
-
-    // Combine two string changes next to each other
-    if (typeof lastChange === 'string' && typeof change === 'string')
-      return [...newChanges.slice(0, -1), lastChange + change]
-    // Combine two StringOp changes next to each other
-    if ((isAdd(lastChange) && isAdd(change)) || (isRemove(lastChange) && isRemove(change)))
-      return [
-        ...newChanges.slice(0, -1),
-        [lastChange[0], getChangeText(lastChange) + getChangeText(change)],
-      ] as Change[]
-    // Add change
-    return [...newChanges, change]
-  }, [])
-
-  // Special case since we never want to have an empty array of changes
-  if (newChanges.filter((change) => !isRemove(change)).length === 0) return ['', ...newChanges]
-  return newChanges
-}
-
-const addChange = (changes: Change[], index: number, change: Change) => [
-  ...changes.slice(0, index),
-  change,
-  ...changes.slice(index),
-]
-
-const replaceChangeText = (changes: Change[], index: number, text: string) =>
-  typeof changes[index] === 'string'
-    ? (changes[index] = text)
-    : // @ts-ignore
-      (changes[index] = [changes[index][0], text])
-
-const sliceChange = (change: Change, startIndex = 0, endIndex = getChangeLength(change)): Change =>
-  typeof change === 'string' ? change.slice(startIndex, endIndex) : [change[0], change[1].slice(startIndex, endIndex)]
-
-/**
- * Attempts to find the overlap on the end of the source string
- * and beginning of the diff string
- * Ex. 'hello fob', 'ob hello' returns 2 for 'ob'
- * Ex. 'foo bar', 'a foo bar' returns 0
- * Ex. 'hello world', 'world hello' returns 5 for 'world'
- */
-function getOverlap(source: string, diff: string) {
-  if (diff === source) return diff.length
-  for (let i = diff.length; i > 0; i--) {
-    if (source[source.length - i] !== diff[0]) continue
-    if (source.endsWith(diff.slice(0, i))) return i
-  }
-  return 0
-}
 
 export function createStringTracker(
   str: string,
@@ -206,7 +175,12 @@ export function createStringTracker(
         const overlapAmount = getOverlap(previousText, text)
 
         newChanges = addChange(newChanges, changeIndex, previousText.slice(previousText.length - overlapAmount))
-        replaceChangeText(newChanges, changeIndex - 1, previousText.slice(0, previousText.length - overlapAmount))
+        newChanges = replaceChange(
+          newChanges,
+          changeIndex - 1,
+          replaceChangeText(newChanges[changeIndex - 1], previousText.slice(0, previousText.length - overlapAmount))
+        )
+
         textToAdd = text.slice(overlapAmount)
 
         changeIndex++
@@ -221,7 +195,11 @@ export function createStringTracker(
       // Inferred that it's an Add because currentChange cannot be a Remove
       else {
         const currentText = getChangeText(currentChange)
-        replaceChangeText(newChanges, changeIndex, currentText.slice(0, offset) + text + currentText.slice(offset))
+        newChanges = replaceChange(
+          newChanges,
+          changeIndex,
+          replaceChangeText(newChanges[changeIndex], currentText.slice(0, offset) + text + currentText.slice(offset))
+        )
       }
     } else {
       newChanges.push([StringOp.Add, text])
@@ -256,7 +234,11 @@ export function createStringTracker(
     // Check first individually to handle offsets
     const currentChange = newChanges[changeIndex]
     const currentText = getChangeText(currentChange)
-    replaceChangeText(newChanges, changeIndex, currentText.slice(0, offset))
+    newChanges = replaceChange(
+      newChanges,
+      changeIndex,
+      replaceChangeText(newChanges[changeIndex], currentText.slice(0, offset))
+    )
     if (typeof currentChange === 'string') {
       newChanges = addChange(newChanges, changeIndex + 1, [
         StringOp.Remove,
@@ -290,13 +272,21 @@ export function createStringTracker(
         newChanges = addChange(newChanges, changeIndex, [StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
         changeIndex++
         if (newChanges[changeIndex]) {
-          replaceChangeText(newChanges, changeIndex, currentText.slice(endIndex - startIndex))
+          newChanges = replaceChange(
+            newChanges,
+            changeIndex,
+            replaceChangeText(newChanges[changeIndex], currentText.slice(endIndex - startIndex))
+          )
         }
       }
       // Inferred that it's an Add. We only need to remove content with no need to track since this content
       // isn't on the original string
       else {
-        replaceChangeText(newChanges, changeIndex, currentText.slice(endIndex - startIndex))
+        newChanges = replaceChange(
+          newChanges,
+          changeIndex,
+          replaceChangeText(newChanges[changeIndex], currentText.slice(endIndex - startIndex))
+        )
       }
 
       startIndex += currentText.length
@@ -321,12 +311,12 @@ export function createStringTracker(
     startIndex = +startIndex
     if (isNaN(startIndex)) startIndex = toNumber(startIndex)
     if (startIndex < 0) startIndex = trackerLength + startIndex
-    startIndex = Math.round(Math.min(startIndex, trackerLength))
+    startIndex = Math.max(Math.round(Math.min(startIndex, trackerLength)), 0)
 
     endIndex = +endIndex
     if (isNaN(endIndex)) endIndex = toNumber(endIndex)
     if (endIndex < 0) endIndex = trackerLength + endIndex
-    endIndex = Math.round(Math.min(endIndex, trackerLength))
+    endIndex = Math.max(Math.round(Math.min(endIndex, trackerLength)), 0)
 
     const sliceLength = endIndex - startIndex
 
@@ -387,6 +377,10 @@ export function createStringTracker(
       remove,
       concat,
       slice,
+      split,
+      substring,
+      substr,
+      repeat,
       replace,
       replaceAll,
       trim,
@@ -394,6 +388,8 @@ export function createStringTracker(
       trimEnd,
       padStart,
       padEnd,
+      toLowerCaseTracker,
+      toUpperCaseTracker,
       toString: () => tracker.get(),
       [Symbol.iterator]: function* () {
         for (const char of this.get()) yield char

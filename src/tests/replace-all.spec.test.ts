@@ -1,5 +1,11 @@
 import { createStringTracker } from '..'
 
+it('should throw when not called on a StringTracker', () => {
+  const tracker = createStringTracker('this is my word')
+  // @ts-ignore
+  expect(() => tracker.replaceAll.call('this is my word', /this/, 'asd')).toThrow(TypeError)
+})
+
 // replaceValue-call-abrupt
 it('should throw inside of the replacer function', () => {
   const stringTracker = createStringTracker('a')

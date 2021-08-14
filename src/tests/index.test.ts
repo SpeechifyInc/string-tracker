@@ -115,7 +115,7 @@ test('add at end', () => {
     [StringOp.Add, 'hy'],
     [StringOp.Remove, 's m'],
     'y word',
-    [StringOp.Add, 'end']
+    [StringOp.Add, 'end'],
   ])
 })
 
@@ -137,8 +137,19 @@ test('remove from end of string to end', () => {
     [StringOp.Add, 'hy'],
     [StringOp.Remove, 's m'],
     'y wor',
-    [StringOp.Remove, 'd']
+    [StringOp.Remove, 'd'],
   ])
+})
+
+it('should remove subsequent adds/strings with a remove in between in changes array ', () => {
+  const tracker = createStringTracker('asda pog', {
+    initialChanges: ['asd', [0, ' '], [1, 'a'], ' ', [0, ' '], 'pog'],
+    initialModified: 'asd  pog',
+  }).remove(3, 6)
+
+  expect(tracker.getOriginal()).toEqual('asda pog')
+  expect(tracker.get()).toEqual('asdog')
+  expect(tracker.getChanges()).toStrictEqual(['asd', [1, 'a '], 'pog'])
 })
 
 // 'hello world'

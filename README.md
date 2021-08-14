@@ -1,6 +1,6 @@
 <p>
   <img src="https://img.shields.io/static/v1?label=npm&message=0.0.1-rc3&color=success&style=flat-square">
-  <img src="https://img.shields.io/static/v1?label=coverage&message=77.5%25&color=yellow&style=flat-square">
+  <img src="https://img.shields.io/static/v1?label=coverage&message=84.24%25&color=green&style=flat-square">
 </p>
 
 # String Tracker
@@ -117,16 +117,10 @@ stringTracker.getIndexOnOriginal(6) // Refers to the 'a' in 'fooar'. 6 - 2 (beca
 
 ## String Prototype functions
 
-The StringTracker includes implementations for every prototype function that would return a new string. Test262 tests are used for development to maintain spec compliance and anything deviates from the spec should be considered a bug. Any string prototype functions that do not return a new string are passed through to the original prototype function via a Proxy. The following functions are currently implemented:
+The StringTracker includes implementations for every prototype function that would return a new string. Test262 tests are used for development to maintain spec compliance and anything deviates from the spec should be considered a bug. Any string prototype functions that do not return a new string are passed through to the original String prototype function via a Proxy. The following functions are currently implemented:
 
-- `slice(startIndex?: number, endIndex?: number): StringTracker`
-- `concat(...trackers: StringTracker[]): StringTracker`
-- `replace(searchValue: string | RegExp, replacer: string | ((substring: string, ...args: any[]) => string)): StringTracker`
-- `replaceAll(searchValue: string | RegExp, replacer: string | ((substring: string, ...args: any[]) => string)): StringTracker`
-- `trim(): StringTracker`
-- `trimStart(): StringTracker`
-- `trimEnd(): StringTracker`
-- `padStart(maxLength: number, fillString?: string): StringTracker`
-- `padEnd(maxLength: number, fillString?: string): StringTracker`
+### Important Note
+
+toLowerCase and toUpperCase cannot be implemented correctly due to the required access to a Unicode mapping for characters cases. Thus, `toLowerCaseTracker` and `toUpperCaseTracker` functions have been provided which convert both the modified *and* original string to lowercase along with all of the changes.
 
 Any missing functions will be added before 1.0 release

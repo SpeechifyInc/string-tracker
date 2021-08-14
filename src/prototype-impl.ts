@@ -1,10 +1,5 @@
-import { StringTracker, StringTrackerSymbol } from '.'
-
-// TODO: split implementation
-// TODO: substr implementation
-// TODO: substring implementation
-// TODO: toLowerCase
-// TODO: toUpperCase
+import { createStringTracker, StringTracker, StringTrackerSymbol } from '.'
+import { getChangeText, replaceChangeText, stringToRegex, toUint32 } from './helpers'
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_string_as_a_parameter
@@ -124,11 +119,16 @@ export function replaceAll(
   searchValue: string | RegExp,
   replacer: string | ((substring: string, ...args: any[]) => string)
 ): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('replaceAll must be called on an instance of StringTracker')
+  }
+
   let tracker = this
   // Build equivalent regexp for string searchValue
-  // Snippet taken from escape-string-regexp
   if (!(searchValue instanceof RegExp)) {
-    searchValue = new RegExp(String(searchValue).replace(/[|\\{}()[\]^$+*?.]/g, '\\$&'), 'g')
+    searchValue = stringToRegex(searchValue)
   }
 
   if (!searchValue.flags.includes('g')) throw new TypeError('replaceAll must be called with a global RegExp')
@@ -140,16 +140,34 @@ export function replaceAll(
 
 /** Removes the leading and trailing white space and line terminator characters from a string. */
 export function trim(this: StringTracker) {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('trim must be called on an instance of StringTracker')
+  }
+
   return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '')
 }
 
 /** Returns a copy with leading whitespace removed. */
 export function trimStart(this: StringTracker) {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('trimStart must be called on an instance of StringTracker')
+  }
+
   return this.replace(/^[\s\uFEFF\xA0]+/g, '')
 }
 
 /** Returns a copy with trailing whitespace removed. */
 export function trimEnd(this: StringTracker) {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('trimEnd must be called on an instance of StringTracker')
+  }
+
   return this.replace(/[\s\uFEFF\xA0]+$/g, '')
 }
 
@@ -165,6 +183,12 @@ export function trimEnd(this: StringTracker) {
  *        The default value for this parameter is " " (U+0020).
  */
 export function padStart(this: StringTracker, maxLength: number, fillString: string = ' '): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('padStart must be called on an instance of StringTracker')
+  }
+
   const tracker = this
   const trackerLength = tracker.get().length
   if (maxLength <= trackerLength) return tracker
@@ -184,6 +208,12 @@ export function padStart(this: StringTracker, maxLength: number, fillString: str
  *        The default value for this parameter is " " (U+0020).
  */
 export function padEnd(this: StringTracker, maxLength: number, fillString: string = ' '): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('padEnd must be called on an instance of StringTracker')
+  }
+
   const tracker = this
   const trackerLength = tracker.get().length
   if (maxLength <= trackerLength) return tracker
@@ -192,4 +222,206 @@ export function padEnd(this: StringTracker, maxLength: number, fillString: strin
     trackerLength - 1,
     fillString.repeat(Math.ceil(sizeDifference / fillString.length)).slice(0, sizeDifference)
   )
+}
+
+/**
+ * Returns a String value that is made from count copies appended together. If count is 0,
+ * the empty string is returned.
+ * @param count number of copies to append
+ */
+export function repeat(this: StringTracker, count: number): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('repeat must be called on an instance of StringTracker')
+  }
+
+  count = Math.trunc(Number(count))
+  if (isNaN(count)) count = 0
+  if (count < 0) throw new RangeError('repeat count must be non-negative')
+  // 2^28 - 1 is used as all browsers and node appear to be capable of handling it
+  if (count === Infinity || count * this.length > 2 ** 28 - 1) {
+    throw new RangeError('repeat count must be less than infinity and not overflow maximum string size')
+  }
+  if (count === 0) return createStringTracker('')
+
+  // Fast trivial case
+  if (this.get() === '' && this.getOriginal() === '') return createStringTracker('')
+  return this.concat(...new Array(count - 1).fill(this))
+}
+
+/**
+ * Split a StringTracker into substrings using the specified separator and return them as an array.
+ * @param separator A string that identifies character or characters to use in separating the string. If omitted, a single-element array containing the entire string is returned.
+ * @param limit A value used to limit the number of elements returned in the array.
+ */
+export function split(this: StringTracker, separator: string | RegExp, limit: number = 2 ** 32 - 1): StringTracker[] {
+  // Step 2 of https://tc39.es/ecma262/multipage/text-processing.html#sec-string.prototype.split
+  // Technically, the spec says we should check for [[Call]] but we don't have access as that's internal
+  // https://tc39.es/ecma262/multipage/abstract-operations.html#sec-iscallable
+  // Also, we ignore it for RegExp because we handle those differently
+  if (
+    !(separator instanceof RegExp) &&
+    separator !== null &&
+    separator !== undefined &&
+    // @ts-ignore
+    typeof separator[Symbol.split] === 'function'
+  ) {
+    // @ts-ignore
+    return separator[Symbol.split](this, limit)
+  }
+
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('split must be called on an instance of StringTracker')
+  }
+
+  // Sanitize limit
+  limit = toUint32(limit)
+
+  // Sanitize separator
+  if (typeof separator !== 'string' && !(separator instanceof RegExp) && separator !== undefined) {
+    separator = String(separator)
+  }
+
+  // Early returns for trivial cases
+  if (limit === 0) return []
+  if (separator === undefined) return [this.slice()]
+  if (separator === '' || (separator instanceof RegExp && separator.source === '(?:)')) {
+    return new Array(Math.min(this.length, limit)).fill(0).map((_, i) => this.slice(i, i + 1))
+  }
+
+  if (typeof separator === 'string') {
+    separator = stringToRegex(separator, 'gd')
+  }
+  // Make RegExp global for matchAll
+  if (!separator.flags.includes('g')) {
+    separator = new RegExp(separator, separator.flags + 'g')
+  }
+  if (!separator.flags.includes('d')) {
+    separator = new RegExp(separator, separator.flags + 'd')
+  }
+
+  // Since exec() is stateful, we make sure we created a new RegExp
+  separator = new RegExp(separator, separator.flags)
+
+  // Build split trackers array
+  const trackers = []
+  let lastIndex = 0
+  let remainingIterations = limit
+  let match: RegExpExecArray | null
+  while ((match = separator.exec(this.get()))) {
+    // Ignore zero width matches and prevent infinite loop by incrementing lastIndex
+    if (match[0] === '') {
+      separator.lastIndex++
+      continue
+    }
+
+    // Check if we've reached the limit
+    if (remainingIterations <= 0) break
+    remainingIterations--
+
+    // Add trackers based on match
+    trackers.push(this.slice(lastIndex, match.index))
+    // @ts-ignore
+    trackers.push(...match.indices.slice(1).map((indices) => this.slice(...indices)))
+
+    lastIndex = match.index! + match[0].length
+  }
+
+  // Add last tracker if we didn't hit the limit
+  if (remainingIterations !== 0) trackers.push(this.slice(lastIndex))
+  return trackers
+}
+
+/** Converts all the alphabetic characters in a StringTracker to lowercase. */
+export function toLowerCaseTracker(this: StringTracker): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('toLowerCase must be called on an instance of StringTracker')
+  }
+
+  const lowerCaseOriginal = this.getOriginal().toLowerCase()
+  const lowerCase = this.get().toLowerCase()
+  const lowerCaseChanges = this.getChanges().map((change) =>
+    replaceChangeText(change, getChangeText(change).toLowerCase())
+  )
+  return createStringTracker(lowerCaseOriginal, {
+    initialModified: lowerCase,
+    initialChanges: lowerCaseChanges,
+  })
+}
+
+/** Converts all the alphabetic characters in a StringTracker to uppercase. */
+export function toUpperCaseTracker(this: StringTracker): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('toUpperCase must be called on an instance of StringTracker')
+  }
+
+  const upperCaseOriginal = this.getOriginal().toUpperCase()
+  const upperCase = this.get().toUpperCase()
+  const upperCaseChanges = this.getChanges().map((change) =>
+    replaceChangeText(change, getChangeText(change).toUpperCase())
+  )
+  return createStringTracker(upperCaseOriginal, {
+    initialModified: upperCase,
+    initialChanges: upperCaseChanges,
+  })
+}
+
+/**
+ * Returns the substring at the specified location within a StringTracker.
+ * @param start The zero-based index number indicating the beginning of the substring.
+ * @param end Zero-based index number indicating the end of the substring. The substring includes the characters up to, but not including, the character indicated by end.
+ * If end is omitted, the characters from start through the end of the original StringTracker are returned.
+ */
+export function substring(this: StringTracker, start: number = 0, end: number = this.length): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('substring must be called on an instance of StringTracker')
+  }
+
+  start = +start
+  end = +end
+  if (isNaN(start) || start < 0) start = 0
+  if (isNaN(end) || end < 0) end = 0
+
+  // Swap the order if startIndex is greater than endIndex
+  if (start > end) {
+    let temp = start
+    start = end
+    end = temp
+  }
+
+  return this.slice(start, end)
+}
+
+/**
+ * Gets a substring beginning at the specified location and having the specified length.
+ * @param from The starting position of the desired substring. The index of the first character in the StringTracker is zero.
+ * @param length The number of characters to include in the returned substring.
+ */
+export function substr(this: StringTracker, from: number = 0, length?: number): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
+    throw new TypeError('substr must be called on an instance of StringTracker')
+  }
+
+  // Sanitize from
+  let startIndex = Math.trunc(+from)
+  if (isNaN(startIndex)) startIndex = 0
+  if (startIndex < 0) startIndex = Math.max(this.length + from, 0)
+
+  // Sanitize length
+  if (length !== undefined && (isNaN(+length) || length < 0)) length = 0
+
+  const endIndex = length === undefined ? this.length : +length + startIndex
+
+  return this.slice(startIndex, endIndex)
 }

@@ -191,6 +191,11 @@ it('should replace $$ with a single $', () => {
   expect(stringTracker.replace(/sh/, '$$sch').get()).toEqual('She sells sea$schells by the seashore.')
 })
 
+it('should treat $* as any other set of characters', () => {
+  const stringTracker = createStringTracker('She sells seashells by the seashore.')
+  expect(stringTracker.replace(/sh/, '$*sch').get()).toEqual('She sells sea$*schells by the seashore.')
+})
+
 // 15.5.4.11_A2_T8
 it('should replace void 0 with undefined string', () => {
   const stringTracker = createStringTracker('undefined')
