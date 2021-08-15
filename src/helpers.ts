@@ -1,15 +1,34 @@
-import { Change, StringOp } from '.'
+import { Change, StringOp, StringTracker, StringTrackerSymbol } from '.'
 
-// Simulates the internal toNumber function: https://tc39.es/ecma262/#sec-tonumber
-export const toNumber = (num: any) => new Int32Array(1).fill(num)[0]
+// Simulates the internal toInterOrInfinity function: https://tc39.es/ecma262/#sec-tointegerorinfinity
+export const toIntegerOrInfinity = (num: any) => {
+  num = +num
+  if (isNaN(num) || num === -0 || num === +0) return 0
+  if (num === Infinity || num === -Infinity) return num
+  const int = Math.floor(Math.abs(num))
+  return num < +0 ? -int : int
+}
 
-// Simulates the internal toUint32 function: https://tc39.es/ecma262/#sec-tonumber
+// Simulates the internal toLength function: https://tc39.es/ecma262/#sec-tolength
+export const toLength = (num: any) => {
+  const len = toIntegerOrInfinity(num)
+  if (len <= 0) return 0
+  return Math.min(len, 2 ** 53 - 1)
+}
+
+// Simulates the internal toUint32 function: https://tc39.es/ecma262/#sec-touint32
 export const toUint32 = (num: any) => new Uint32Array(1).fill(num)[0]
 
 // Snippet taken from escape-string-regexp
 // Builds an equivalent regex for a string
 export const stringToRegex = (str: string, flags: string = 'g') =>
   new RegExp(String(str).replace(/[|\\{}()[\]^$+*?.]/g, '\\$&'), flags)
+
+/** Throws a TypeError if the first argument is not a string tracker with the funcName included in the error message */
+export const throwIfNotStringTracker = (tracker: StringTracker, funcName: string) => {
+  if (typeof tracker !== 'object' || !(StringTrackerSymbol in tracker))
+    throw new TypeError(`${funcName} must be called on an instance of StringTracker`)
+}
 
 /**
  * Attempts to find the overlap on the end of the source string

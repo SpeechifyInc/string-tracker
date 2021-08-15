@@ -15,6 +15,8 @@
 // For slice, don't include removed but include in index, include added but don't count in index <-- unpredictable length
 // For slice, don't include removed and don't include in index, include added and count in index <-- predictable length
 
+// TODO: tests for trim and pad
+
 import {
   addChange,
   cleanChanges,
@@ -26,7 +28,7 @@ import {
   replaceChange,
   replaceChangeText,
   sliceChange,
-  toNumber,
+  toIntegerOrInfinity,
 } from './helpers'
 import {
   split,
@@ -39,8 +41,6 @@ import {
   trimEnd,
   padStart,
   padEnd,
-  toLowerCaseTracker,
-  toUpperCaseTracker,
   repeat,
 } from './prototype-impl'
 
@@ -67,8 +67,6 @@ type StringTrackerBase = {
   trimEnd: typeof trimEnd
   padStart: typeof padStart
   padEnd: typeof padEnd
-  toLowerCaseTracker: typeof toLowerCaseTracker
-  toUpperCaseTracker: typeof toUpperCaseTracker
   toString: String['toString']
   [Symbol.iterator]: String[typeof Symbol.iterator]
   [StringTrackerSymbol]: true
@@ -308,13 +306,11 @@ export function createStringTracker(
     // Sanitize our inputs to match the behavior of the spec
     const trackerLength = modifiedStr.length
 
-    startIndex = +startIndex
-    if (isNaN(startIndex)) startIndex = toNumber(startIndex)
+    startIndex = toIntegerOrInfinity(startIndex)
     if (startIndex < 0) startIndex = trackerLength + startIndex
     startIndex = Math.max(Math.round(Math.min(startIndex, trackerLength)), 0)
 
-    endIndex = +endIndex
-    if (isNaN(endIndex)) endIndex = toNumber(endIndex)
+    endIndex = toIntegerOrInfinity(endIndex)
     if (endIndex < 0) endIndex = trackerLength + endIndex
     endIndex = Math.max(Math.round(Math.min(endIndex, trackerLength)), 0)
 
@@ -388,8 +384,6 @@ export function createStringTracker(
       trimEnd,
       padStart,
       padEnd,
-      toLowerCaseTracker,
-      toUpperCaseTracker,
       toString: () => tracker.get(),
       [Symbol.iterator]: function* () {
         for (const char of this.get()) yield char

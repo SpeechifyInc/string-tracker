@@ -1,10 +1,6 @@
 import { createStringTracker } from '..'
 import { getModifiedFromChanges } from './helpers'
 
-function createSubstringTest(str: string, start?: any, end?: any) {
-  return () => runSubstringTest(str, start, end)
-}
-
 function runSubstringTest(str: string, start?: any, end?: any) {
   const tracker = createStringTracker(str)
 

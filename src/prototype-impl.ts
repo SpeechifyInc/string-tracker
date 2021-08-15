@@ -1,5 +1,5 @@
-import { createStringTracker, StringTracker, StringTrackerSymbol } from '.'
-import { getChangeText, replaceChangeText, stringToRegex, toUint32 } from './helpers'
+import { createStringTracker, StringTracker } from '.'
+import { stringToRegex, throwIfNotStringTracker, toIntegerOrInfinity, toLength, toUint32 } from './helpers'
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_string_as_a_parameter
@@ -61,9 +61,7 @@ export function replace(
 
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof tracker !== 'object' || !(StringTrackerSymbol in tracker)) {
-    throw new TypeError('replace must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(tracker, 'replace')
 
   // Sanitize inputs
   // Order matters according to the spec and should be tested in replace.test.ts
@@ -119,13 +117,12 @@ export function replaceAll(
   searchValue: string | RegExp,
   replacer: string | ((substring: string, ...args: any[]) => string)
 ): StringTracker {
+  let tracker = this
+
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('replaceAll must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'replaceAll')
 
-  let tracker = this
   // Build equivalent regexp for string searchValue
   if (!(searchValue instanceof RegExp)) {
     searchValue = stringToRegex(searchValue)
@@ -142,9 +139,7 @@ export function replaceAll(
 export function trim(this: StringTracker) {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('trim must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'trim')
 
   return this.replace(/^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g, '')
 }
@@ -153,9 +148,7 @@ export function trim(this: StringTracker) {
 export function trimStart(this: StringTracker) {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('trimStart must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'trimStart')
 
   return this.replace(/^[\s\uFEFF\xA0]+/g, '')
 }
@@ -164,9 +157,7 @@ export function trimStart(this: StringTracker) {
 export function trimEnd(this: StringTracker) {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('trimEnd must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'trimEnd')
 
   return this.replace(/[\s\uFEFF\xA0]+$/g, '')
 }
@@ -185,15 +176,10 @@ export function trimEnd(this: StringTracker) {
 export function padStart(this: StringTracker, maxLength: number, fillString: string = ' '): StringTracker {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('padStart must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'padStart')
 
-  const tracker = this
-  const trackerLength = tracker.get().length
-  if (maxLength <= trackerLength) return tracker
-  const sizeDifference = maxLength - trackerLength
-  return tracker.add(0, fillString.repeat(Math.ceil(sizeDifference / fillString.length)).slice(0, sizeDifference))
+  // .concat() is used to make sure we return a new tracker
+  return trackerPad(this.concat(), maxLength, fillString, 'start')
 }
 
 /**
@@ -210,17 +196,25 @@ export function padStart(this: StringTracker, maxLength: number, fillString: str
 export function padEnd(this: StringTracker, maxLength: number, fillString: string = ' '): StringTracker {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('padEnd must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'padEnd')
 
-  const tracker = this
+  // .concat() is used to make sure we return a new tracker
+  return trackerPad(this.concat(), maxLength, fillString, 'end')
+}
+
+function trackerPad(tracker: StringTracker, maxLength: number, fillString: string, placement: 'start' | 'end') {
+  // Sanitize maxLength
+  maxLength = toLength(maxLength)
   const trackerLength = tracker.get().length
   if (maxLength <= trackerLength) return tracker
-  const sizeDifference = maxLength - trackerLength
+
+  fillString = String(fillString)
+  if (fillString.length === 0) return tracker
+
+  const fillLen = maxLength - trackerLength
   return tracker.add(
-    trackerLength - 1,
-    fillString.repeat(Math.ceil(sizeDifference / fillString.length)).slice(0, sizeDifference)
+    placement === 'start' ? 0 : trackerLength,
+    fillString.repeat(Math.ceil(fillLen / fillString.length)).slice(0, fillLen)
   )
 }
 
@@ -232,12 +226,9 @@ export function padEnd(this: StringTracker, maxLength: number, fillString: strin
 export function repeat(this: StringTracker, count: number): StringTracker {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('repeat must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'repeat')
 
-  count = Math.trunc(Number(count))
-  if (isNaN(count)) count = 0
+  count = toIntegerOrInfinity(count)
   if (count < 0) throw new RangeError('repeat count must be non-negative')
   // 2^28 - 1 is used as all browsers and node appear to be capable of handling it
   if (count === Infinity || count * this.length > 2 ** 28 - 1) {
@@ -273,9 +264,7 @@ export function split(this: StringTracker, separator: string | RegExp, limit: nu
 
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('split must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'split')
 
   // Sanitize limit
   limit = toUint32(limit)
@@ -335,44 +324,6 @@ export function split(this: StringTracker, separator: string | RegExp, limit: nu
   return trackers
 }
 
-/** Converts all the alphabetic characters in a StringTracker to lowercase. */
-export function toLowerCaseTracker(this: StringTracker): StringTracker {
-  // Throw TypeError when attempting to call this function on an object that does not contain
-  // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('toLowerCase must be called on an instance of StringTracker')
-  }
-
-  const lowerCaseOriginal = this.getOriginal().toLowerCase()
-  const lowerCase = this.get().toLowerCase()
-  const lowerCaseChanges = this.getChanges().map((change) =>
-    replaceChangeText(change, getChangeText(change).toLowerCase())
-  )
-  return createStringTracker(lowerCaseOriginal, {
-    initialModified: lowerCase,
-    initialChanges: lowerCaseChanges,
-  })
-}
-
-/** Converts all the alphabetic characters in a StringTracker to uppercase. */
-export function toUpperCaseTracker(this: StringTracker): StringTracker {
-  // Throw TypeError when attempting to call this function on an object that does not contain
-  // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('toUpperCase must be called on an instance of StringTracker')
-  }
-
-  const upperCaseOriginal = this.getOriginal().toUpperCase()
-  const upperCase = this.get().toUpperCase()
-  const upperCaseChanges = this.getChanges().map((change) =>
-    replaceChangeText(change, getChangeText(change).toUpperCase())
-  )
-  return createStringTracker(upperCaseOriginal, {
-    initialModified: upperCase,
-    initialChanges: upperCaseChanges,
-  })
-}
-
 /**
  * Returns the substring at the specified location within a StringTracker.
  * @param start The zero-based index number indicating the beginning of the substring.
@@ -382,14 +333,10 @@ export function toUpperCaseTracker(this: StringTracker): StringTracker {
 export function substring(this: StringTracker, start: number = 0, end: number = this.length): StringTracker {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('substring must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'substring')
 
-  start = +start
-  end = +end
-  if (isNaN(start) || start < 0) start = 0
-  if (isNaN(end) || end < 0) end = 0
+  start = Math.max(0, toIntegerOrInfinity(start))
+  end = Math.max(0, toIntegerOrInfinity(end))
 
   // Swap the order if startIndex is greater than endIndex
   if (start > end) {
@@ -409,9 +356,7 @@ export function substring(this: StringTracker, start: number = 0, end: number = 
 export function substr(this: StringTracker, from: number = 0, length?: number): StringTracker {
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
-  if (typeof this !== 'object' || !(StringTrackerSymbol in this)) {
-    throw new TypeError('substr must be called on an instance of StringTracker')
-  }
+  throwIfNotStringTracker(this, 'substr')
 
   // Sanitize from
   let startIndex = Math.trunc(+from)

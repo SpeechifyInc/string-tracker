@@ -4,10 +4,6 @@
 import { createStringTracker } from ".."
 import { getModifiedFromChanges } from "./helpers"
 
-function createSubstrTest(str: string, from?: any, length?: any) {
-  return () => runSubstrTest(str, from, length)
-}
-
 function runSubstrTest(str: string, from?: any, length?: any) {
   const tracker = createStringTracker(str)
 
