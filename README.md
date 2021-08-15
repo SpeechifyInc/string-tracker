@@ -1,5 +1,5 @@
 <p>
-  <img src="https://img.shields.io/static/v1?label=npm&message=0.0.1-rc3&color=success&style=flat-square">
+  <img src="https://img.shields.io/static/v1?label=npm&message=0.0.1-rc4&color=success&style=flat-square">
   <img src="https://img.shields.io/static/v1?label=coverage&message=90.89%25&color=green&style=flat-square">
 </p>
 

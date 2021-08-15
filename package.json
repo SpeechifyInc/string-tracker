@@ -1,6 +1,6 @@
 {
   "name": "@saghen/string-tracker",
-  "version": "0.0.1-rc3",
+  "version": "0.0.1-rc4",
   "description": "A library for operating on strings while maintaining changes and index maps transparently",
   "engines" : { "node" : ">=16" },
   "main": "dist/cjs/index.js",
