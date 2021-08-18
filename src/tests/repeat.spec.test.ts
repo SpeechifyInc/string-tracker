@@ -1,5 +1,5 @@
 import { createStringTracker } from '..'
-import { getModifiedFromChanges } from './helpers'
+import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function createRepeatTest(str: string, count?: any) {
   return () => runRepeatTest(str, count)
@@ -13,6 +13,7 @@ function runRepeatTest(str: string, count?: any) {
 
   expect(trackerSubstring.get()).toStrictEqual(actualSubstring)
   expect(getModifiedFromChanges(trackerSubstring)).toStrictEqual(actualSubstring)
+  expect(validateChanges(tracker)).toEqual(true)
 }
 
 it('should throw when not called on a StringTracker', () => {
@@ -56,4 +57,30 @@ it('should return an empty string when repeating an empty string', () => {
   runRepeatTest('', 1)
   runRepeatTest('', 3)
   runRepeatTest('', 2 ** 31 - 1) // Max safe 32 bit int
+})
+
+// repeat-string-n-times.js
+it('should repeat in general case', () => {
+  runRepeatTest('abc', 1)
+  runRepeatTest('abc', 3)
+  runRepeatTest('.', 1000)
+})
+
+// return-abrupt-from-count-as-symbol.js
+it('should throw TypeError when count is a Symbol', () => {
+  // @ts-ignore
+  expect(() => createStringTracker('').repeat(Symbol())).toThrow(TypeError)
+})
+
+// return-abrupt-from-count.js
+it('should coerce count to number', () => {
+  expect(() =>
+    // @ts-ignore
+    createStringTracker('').repeat({
+      // @ts-ignore
+      toString() {
+        throw new Error('expected')
+      },
+    })
+  ).toThrow(new Error('expected'))
 })

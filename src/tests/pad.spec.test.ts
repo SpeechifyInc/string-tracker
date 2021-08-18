@@ -1,5 +1,5 @@
 import { createStringTracker } from '..'
-import { getModifiedFromChanges } from './helpers'
+import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function runPadTest(str: string, maxLength?: any, fillString?: any) {
   const tracker = createStringTracker(str)
@@ -12,9 +12,11 @@ function runPadTest(str: string, maxLength?: any, fillString?: any) {
 
   expect(trackerPadStart.get()).toStrictEqual(actualPadStart)
   expect(getModifiedFromChanges(trackerPadStart)).toStrictEqual(actualPadStart)
+  expect(validateChanges(trackerPadStart)).toEqual(true)
 
   expect(trackerPadEnd.get()).toStrictEqual(actualPadEnd)
   expect(getModifiedFromChanges(trackerPadEnd)).toStrictEqual(actualPadEnd)
+  expect(validateChanges(trackerPadEnd)).toEqual(true)
 }
 
 it('should throw when not called on a StringTracker', () => {

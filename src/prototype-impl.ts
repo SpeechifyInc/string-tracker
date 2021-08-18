@@ -1,5 +1,15 @@
 import { createStringTracker, StringTracker } from '.'
-import { stringToRegex, throwIfNotStringTracker, toIntegerOrInfinity, toLength, toUint32 } from './helpers'
+import {
+  getChangeLength,
+  getChangeText,
+  isRemove,
+  sliceChange,
+  stringToRegex,
+  throwIfNotStringTracker,
+  toIntegerOrInfinity,
+  toLength,
+  toUint32,
+} from './helpers'
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_string_as_a_parameter
@@ -21,18 +31,21 @@ function createReplacer(replaceStr: string, isRegex: boolean): (substring: strin
       if (isRegex && !isNaN(+curr.slice(1))) {
         // -1 is used on indexes because it is 1-indexed
         // First we try the largest match we can 1-99
-        const index = +curr.slice(1) - 1
+        const index = Number(curr.slice(1)) - 1
         let value = args.slice(0, -2)[index]
 
         // If we don't find anything, we try a smaller match if possible (1-9)
-        if (!value && index > 9) {
+        if (value === undefined && index > 9) {
           const index = +curr[1] - 1
-          // Add the extra digit if it's there
-          value = args.slice(0, -2)[index] + (curr[2] ?? '')
+
+          if (args.slice(0, -2)[index] !== undefined) {
+            // Add the extra digit if it's there
+            value = args.slice(0, -2)[index] + curr[2]
+          }
         }
 
         // Return with the match or curr if no match was found
-        return str + value ?? curr
+        return str + (value ?? curr)
       }
       return str + curr
     }, '')
@@ -125,14 +138,93 @@ export function replaceAll(
 
   // Build equivalent regexp for string searchValue
   if (!(searchValue instanceof RegExp)) {
-    searchValue = stringToRegex(searchValue)
+    searchValue = stringToRegex(searchValue, 'g')
   }
 
   if (!searchValue.flags.includes('g')) throw new TypeError('replaceAll must be called with a global RegExp')
 
-  // Work around for typescript complaining about overload signatures
-  if (typeof replacer === 'string') return tracker.replace(searchValue, replacer)
+  // @ts-ignore
+  // Complaining due to overload signatures
   return tracker.replace(searchValue, replacer)
+}
+
+/**
+ * Returns a section of a StringTracker.
+ * @param start The index to the beginning of the specified portion of StringTracker.
+ * @param end The index to the end of the specified portion of StringTracker. The substring includes the characters up to, but not including, the character indicated by end.
+ * If this value is not specified, the substring continues to the end of StringTracker.
+ */
+export function slice(this: StringTracker, startIndex: number = 0, endIndex?: number): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  throwIfNotStringTracker(this, 'slice')
+
+  // Sanitize our inputs to match the behavior of the spec
+  const trackerLength = this.length
+
+  startIndex = toIntegerOrInfinity(startIndex)
+  if (startIndex < 0) startIndex = trackerLength + startIndex
+  startIndex = Math.round(Math.max(Math.min(startIndex, trackerLength), 0))
+
+  let sanitizedEndIndex = toIntegerOrInfinity(endIndex ?? this.length)
+  if (sanitizedEndIndex < 0) sanitizedEndIndex = trackerLength + sanitizedEndIndex
+  sanitizedEndIndex = Math.round(Math.max(Math.min(sanitizedEndIndex, trackerLength), 0))
+
+  const sliceLength = sanitizedEndIndex - startIndex
+
+  if (sanitizedEndIndex <= startIndex) return createStringTracker('')
+  const { index, offset, change } = this.getIndexOfChange(startIndex)
+
+  const slicedOriginalStr = this.getOriginal().slice(
+    this.getIndexOnOriginal(startIndex),
+    this.getIndexOnOriginal(sanitizedEndIndex)
+  )
+
+  const slicedChanges = [sliceChange(change, offset, offset + sliceLength)]
+
+  if (getChangeLength(slicedChanges[0]) === sliceLength)
+    // Early return when the single change contains all the required content
+    return createStringTracker(slicedOriginalStr, {
+      initialModified: slicedChanges.map(getChangeText).join(''),
+      initialChanges: slicedChanges,
+    })
+
+  for (const change of this.getChanges().slice(index + 1)) {
+    if (isRemove(change)) {
+      slicedChanges.push(change)
+      continue
+    }
+    const slicedChangesLength = slicedChanges.map(getChangeLength).reduce((a, b) => a + b, 0)
+    const charsToAdd = sliceLength - slicedChangesLength
+
+    slicedChanges.push(sliceChange(change, 0, charsToAdd))
+    if (charsToAdd <= getChangeLength(change)) break
+  }
+
+  return createStringTracker(slicedOriginalStr, {
+    initialModified: slicedChanges
+      .filter((change) => !isRemove(change))
+      .map(getChangeText)
+      .join(''),
+    initialChanges: slicedChanges,
+  })
+}
+
+/**
+ * Concatenates StringTracker arguments to the calling StringTracker and returns a new StringTracker
+ * @param trackers One or more StringTracker to concatenate to calling StringTracker
+ */
+export function concat(this: StringTracker, ...trackers: StringTracker[]): StringTracker {
+  // Throw TypeError when attempting to call this function on an object that does not contain
+  // the StringTrackerSymbol identifier
+  throwIfNotStringTracker(this, 'concat')
+
+  const concatTrackers = [this, ...trackers]
+
+  const newChanges = concatTrackers.flatMap((tracker) => tracker.getChanges())
+  const newModifiedStr = concatTrackers.map((tracker) => tracker.get()).join('')
+  const newStr = concatTrackers.map((tracker) => tracker.getOriginal()).join('')
+  return createStringTracker(newStr, { initialModified: newModifiedStr, initialChanges: newChanges })
 }
 
 /** Removes the leading and trailing white space and line terminator characters from a string. */

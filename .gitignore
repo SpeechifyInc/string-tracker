@@ -106,3 +106,6 @@ dist
 # Package locks
 package-lock.json
 yarn.lock
+
+# VSCode
+.vscode

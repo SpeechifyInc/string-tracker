@@ -1,5 +1,5 @@
 import { createStringTracker } from '..'
-import { getModifiedFromChanges } from './helpers'
+import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function runSubstringTest(str: string, start?: any, end?: any) {
   const tracker = createStringTracker(str)
@@ -9,6 +9,7 @@ function runSubstringTest(str: string, start?: any, end?: any) {
 
   expect(trackerSubstring.get()).toStrictEqual(actualSubstring)
   expect(getModifiedFromChanges(trackerSubstring)).toStrictEqual(actualSubstring)
+  expect(validateChanges(tracker)).toEqual(true)
 }
 
 it('should throw when not called on a StringTracker', () => {

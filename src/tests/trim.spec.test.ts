@@ -1,5 +1,5 @@
 import { createStringTracker } from '..'
-import { getModifiedFromChanges } from './helpers'
+import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function runTrimTest(str: string) {
   const tracker = createStringTracker(str)
@@ -15,12 +15,15 @@ function runTrimTest(str: string) {
 
   expect(trackerTrim.get()).toStrictEqual(actualTrim)
   expect(getModifiedFromChanges(trackerTrim)).toStrictEqual(actualTrim)
+  expect(validateChanges(trackerTrim)).toEqual(true)
 
   expect(trackerTrimStart.get()).toStrictEqual(actualTrimStart)
   expect(getModifiedFromChanges(trackerTrimStart)).toStrictEqual(actualTrimStart)
+  expect(validateChanges(trackerTrimStart)).toEqual(true)
 
   expect(trackerTrimEnd.get()).toStrictEqual(actualTrimEnd)
   expect(getModifiedFromChanges(trackerTrimEnd)).toStrictEqual(actualTrimEnd)
+  expect(validateChanges(trackerTrimEnd)).toEqual(true)
 }
 
 it('should throw when not called on a StringTracker', () => {

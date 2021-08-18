@@ -152,10 +152,20 @@ it('should remove subsequent adds/strings with a remove in between in changes ar
   expect(tracker.getChanges()).toStrictEqual(['asd', [1, 'a '], 'pog'])
 })
 
-// 'hello world'
+// getIndexOnOriginal
+it('getIndexOnOriginal should throw a RangeError when called with a negative number', () => {
+  expect(() => createStringTracker('asd').getIndexOnOriginal(-1))
+})
 
-// ['hello world']
+it('getIndexOnOriginal should return original string length when called with modified string length', () => {
+  expect(trackedStr8.getIndexOnOriginal(trackedStr8.length)).toEqual(trackedStr8.getOriginal().length)
+})
 
-// ['hell', ['add', 'ee'], 'o world']
+// getIndexOnModified
+it('getIndexOnModified should return modified string length when called with original string length', () => {
+  expect(trackedStr8.getIndexOnModified(trackedStr8.getOriginal().length)).toEqual(trackedStr8.length)
+})
 
-// ['hell', ['add', 'ee'], 'o w', ['remove', 'or'], 'ld']
+it('getIndexOnModified should throw a RangeError when called with a negative number', () => {
+  expect(() => createStringTracker('asd').getIndexOnModified(-1))
+})

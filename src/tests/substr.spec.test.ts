@@ -2,7 +2,7 @@
 // and are not from Test262
 
 import { createStringTracker } from ".."
-import { getModifiedFromChanges } from "./helpers"
+import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function runSubstrTest(str: string, from?: any, length?: any) {
   const tracker = createStringTracker(str)
@@ -12,6 +12,7 @@ function runSubstrTest(str: string, from?: any, length?: any) {
 
   expect(trackerSubstring.get()).toStrictEqual(actualSubstring)
   expect(getModifiedFromChanges(trackerSubstring)).toStrictEqual(actualSubstring)
+  expect(validateChanges(tracker)).toEqual(true)
 }
 
 it('should throw when not called on a StringTracker', () => {
@@ -33,6 +34,14 @@ it('should start counting start from beginning of string clamped at string lengt
   runSubstrTest('a', 1, 0)
   runSubstrTest('a', 1, 1)
   runSubstrTest('a', 1, 5)
+})
+
+it('should convert undefined and NaN length to 0', () => {
+  const str = 'ABBBAAABBBBABABA'
+  runSubstrTest(str, NaN)
+  runSubstrTest(str, NaN, 5)
+  runSubstrTest(str, undefined)
+  runSubstrTest(str, undefined, 5)
 })
 
 it('should start counting negative start from end of string clamped at string length and 0', () => {

@@ -6,6 +6,10 @@ it('should throw when not called on a StringTracker', () => {
   expect(() => tracker.replaceAll.call('this is my word', /this/, 'asd')).toThrow(TypeError)
 })
 
+it('should throw when called with a non global regexp', () => {
+  expect(() => createStringTracker('this is my word').replaceAll(/foo/, 'bar')).toThrow(TypeError)
+})
+
 // replaceValue-call-abrupt
 it('should throw inside of the replacer function', () => {
   const stringTracker = createStringTracker('a')
