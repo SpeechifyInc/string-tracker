@@ -80,7 +80,6 @@ type StringTrackerBase = {
   [StringTrackerSymbol]: true
 } & StringTrackerPrototype
 
-
 type StringPrototype = {
   [key in keyof Omit<String, keyof StringTrackerBase | 'length'>]: String[key]
 }
@@ -96,7 +95,6 @@ const reboundStringPrototype: StringPrototype = Object.fromEntries(
     },
   ])
 )
-
 
 const trackerPrototype: StringTrackerPrototype & StringPrototype & { length: number } = {
   ...reboundStringPrototype,
@@ -131,6 +129,20 @@ export enum StringOp {
 
 export type Change = [StringOp, string] | string
 
+/*
+export function createTrackerChunk(
+  str: string,
+  { initialModified = str, initialChanges = [str] }: { initialModified?: string; initialChanges?: Change[] } = {}
+) {
+  const modifiedStr = initialModified
+  const changes: Change[] = initialChanges
+
+  const get = () => modifiedStr
+  const getOriginal = () => str
+  const getChanges = () => changes
+}
+*/
+
 export function createStringTracker(
   str: string,
   { initialModified = str, initialChanges = [str] }: { initialModified?: string; initialChanges?: Change[] } = {}
@@ -145,7 +157,7 @@ export function createStringTracker(
   const getIndexOfChange = (targetIndex: number, shouldSkipChange: (change: Change) => boolean = isRemove) => {
     // If only JS had find with accumulator (transduce)...
     let index = 0
-    for (const [i, change] of Object.entries(changes)) {
+    for (const [i, change] of changes.entries()) {
       if (shouldSkipChange(change)) continue
       if (index + getChangeLength(change) > targetIndex) return { offset: targetIndex - index, index: +i, change }
       index += getChangeLength(change)
@@ -199,7 +211,7 @@ export function createStringTracker(
 
   const add = (index: number, text: string) => {
     let { offset, index: changeIndex } = getIndexOfChange(index)
-    let newChanges = changes.slice()
+    const newChanges = changes.slice()
 
     // We only need to check the beginning and middle since the offset can only be
     // equal to the length of the string when we are at the end of the string
@@ -225,8 +237,8 @@ export function createStringTracker(
       if (isRemove(previousChange)) {
         const overlapAmount = getOverlap(previousText, text)
 
-        newChanges = addChange(newChanges, changeIndex, previousText.slice(previousText.length - overlapAmount))
-        newChanges = replaceChange(
+        addChange(newChanges, changeIndex, previousText.slice(previousText.length - overlapAmount))
+        replaceChange(
           newChanges,
           changeIndex - 1,
           replaceChangeText(newChanges[changeIndex - 1], previousText.slice(0, previousText.length - overlapAmount))
@@ -236,17 +248,17 @@ export function createStringTracker(
 
         changeIndex++
       }
-      newChanges = addChange(newChanges, changeIndex, [StringOp.Add, textToAdd])
+      addChange(newChanges, changeIndex, [StringOp.Add, textToAdd])
     } else if (offset <= getChangeLength(currentChange)) {
       if (typeof currentChange === 'string') {
         newChanges[changeIndex] = currentChange.slice(0, offset)
-        newChanges = addChange(newChanges, changeIndex + 1, [StringOp.Add, text])
-        newChanges = addChange(newChanges, changeIndex + 2, currentChange.slice(offset))
+        addChange(newChanges, changeIndex + 1, [StringOp.Add, text])
+        addChange(newChanges, changeIndex + 2, currentChange.slice(offset))
       }
       // Inferred that it's an Add because currentChange cannot be a Remove
       else {
         const currentText = getChangeText(currentChange)
-        newChanges = replaceChange(
+        replaceChange(
           newChanges,
           changeIndex,
           replaceChangeText(newChanges[changeIndex], currentText.slice(0, offset) + text + currentText.slice(offset))
@@ -270,7 +282,7 @@ export function createStringTracker(
     const newModifiedStr = modifiedStr.slice(0, startIndex) + modifiedStr.slice(endIndex)
 
     let { offset, index: changeIndex } = getIndexOfChange(startIndex)
-    let newChanges = changes.slice()
+    const newChanges = changes.slice()
 
     // We first check only the first change because of the offset. In all other cases,
     // we simply remove and modify the original change. If it becomes empty, it will be
@@ -285,13 +297,13 @@ export function createStringTracker(
     // Check first individually to handle offsets
     const currentChange = newChanges[changeIndex]
     const currentText = getChangeText(currentChange)
-    newChanges = replaceChange(
+    replaceChange(
       newChanges,
       changeIndex,
       replaceChangeText(newChanges[changeIndex], currentText.slice(0, offset))
     )
     if (typeof currentChange === 'string') {
-      newChanges = addChange(newChanges, changeIndex + 1, [
+      addChange(newChanges, changeIndex + 1, [
         StringOp.Remove,
         currentText.slice(offset, offset + endIndex - startIndex),
       ])
@@ -299,11 +311,11 @@ export function createStringTracker(
     // Check if we are already done
     if (currentText.length > offset + endIndex - startIndex) {
       if (typeof currentChange === 'string') {
-        newChanges = addChange(newChanges, changeIndex + 2, currentText.slice(offset + endIndex - startIndex))
+        addChange(newChanges, changeIndex + 2, currentText.slice(offset + endIndex - startIndex))
       }
       // Inferred that it's an Add
       else {
-        newChanges = addChange(newChanges, changeIndex + 2, [
+        addChange(newChanges, changeIndex + 2, [
           StringOp.Add,
           currentText.slice(offset + endIndex - startIndex),
         ])
@@ -320,10 +332,10 @@ export function createStringTracker(
       const currentText = getChangeText(currentChange)
       // Add the remove change for tracking and adjust the string for what we removed
       if (typeof currentChange === 'string') {
-        newChanges = addChange(newChanges, changeIndex, [StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
+        addChange(newChanges, changeIndex, [StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
         changeIndex++
         if (newChanges[changeIndex]) {
-          newChanges = replaceChange(
+          replaceChange(
             newChanges,
             changeIndex,
             replaceChangeText(newChanges[changeIndex], currentText.slice(endIndex - startIndex))
@@ -333,7 +345,7 @@ export function createStringTracker(
       // Inferred that it's an Add. We only need to remove content with no need to track since this content
       // isn't on the original string
       else {
-        newChanges = replaceChange(
+        replaceChange(
           newChanges,
           changeIndex,
           replaceChangeText(newChanges[changeIndex], currentText.slice(endIndex - startIndex))

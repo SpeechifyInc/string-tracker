@@ -53,25 +53,29 @@ export const getChangeText = (change: Change): string => (typeof change === 'str
 export const getChangeLength = (change: Change) => getChangeText(change).length
 
 export const cleanChanges = (changes: Change[]): Change[] => {
-  const newChanges = changes.reduce<Change[]>((newChanges, change, i) => {
+  const newChanges = changes.reduce<Change[]>((newChanges, change) => {
     // Remove empty changes
     if (getChangeLength(change) === 0) return newChanges
 
-    const lastChange = newChanges.slice(-1)[0]
+    const lastChange = newChanges[newChanges.length - 1]
     // Handle first iteration
     if (lastChange === undefined) return [change] as Change[]
 
     // Combine two string changes next to each other
-    if (typeof lastChange === 'string' && typeof change === 'string')
-      return [...newChanges.slice(0, -1), lastChange + change]
+    if (typeof lastChange === 'string' && typeof change === 'string') {
+      newChanges[newChanges.length - 1] = lastChange + change
+      return newChanges
+    }
+
     // Combine two StringOp changes next to each other
-    if ((isAdd(lastChange) && isAdd(change)) || (isRemove(lastChange) && isRemove(change)))
-      return [
-        ...newChanges.slice(0, -1),
-        [lastChange[0], getChangeText(lastChange) + getChangeText(change)],
-      ] as Change[]
+    if ((isAdd(lastChange) && isAdd(change)) || (isRemove(lastChange) && isRemove(change))) {
+      newChanges[newChanges.length - 1] = [lastChange[0] as StringOp, getChangeText(lastChange) + getChangeText(change)]
+      return newChanges
+    }
+
     // Add change
-    return [...newChanges, change]
+    newChanges.push(change)
+    return newChanges
   }, [])
 
   // Special case since we never want to have an empty array of changes
@@ -79,20 +83,15 @@ export const cleanChanges = (changes: Change[]): Change[] => {
   return newChanges
 }
 
-export const addChange = (changes: Change[], index: number, change: Change) => [
-  ...changes.slice(0, index),
-  change,
-  ...changes.slice(index),
-]
+export const addChange = (changes: Change[], index: number, change: Change) => changes.splice(index, 0, change)
 
 export const replaceChangeText = (change: Change, text: string) =>
   (typeof change === 'string' ? text : [change[0], text]) as Change
 
-export const replaceChange = (changes: Change[], index: number, change: Change) => [
-  ...changes.slice(0, index),
-  change,
-  ...changes.slice(index + 1),
-]
+export const replaceChange = (changes: Change[], index: number, change: Change) => {
+  changes[index] = change
+  return changes
+}
 
 export const sliceChange = (change: Change, startIndex = 0, endIndex = getChangeLength(change)): Change =>
   typeof change === 'string' ? change.slice(startIndex, endIndex) : [change[0], change[1].slice(startIndex, endIndex)]
