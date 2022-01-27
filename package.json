@@ -1,7 +1,7 @@
 {
   "name": "@saghen/string-tracker",
-  "version": "0.0.1-rc5",
-  "description": "A library for operating on strings while maintaining changes and index maps transparently",
+  "version": "1.0.0",
+  "description": "A zero dependency library for operating on strings while maintaining changes and index maps transparently",
   "engines": {
     "node": ">=12"
   },
@@ -16,7 +16,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.cjs.json && tsc -p tsconfig.mjs.json && ./fix-up.sh",
-    "fuzz": "esbuild --format=esm --bundle --target=node16 --platform=node --external:chalk --outfile=.cache/fuzzer.mjs tests/fuzzer/main.ts && node .cache/fuzzer.mjs",
+    "fuzz": "esbuild --format=esm --bundle --target=node12 --platform=node --external:chalk --outfile=.cache/fuzzer.mjs tests/fuzzer/main.ts && node .cache/fuzzer.mjs",
     "test": "jest",
     "test-watch": "jest --watch"
   },

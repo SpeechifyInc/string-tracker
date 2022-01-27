@@ -1,4 +1,7 @@
+.cache/
+.vscode/
 coverage/
+tests/
 fix-up.sh
 jest.config.js
 .prettierrc
