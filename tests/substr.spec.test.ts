@@ -1,7 +1,7 @@
 // Since substr is not standardized, the tests written here are written based on online documentation
 // and are not from Test262
 
-import { createStringTracker } from ".."
+import { createStringTracker } from "../src"
 import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function runSubstrTest(str: string, from?: any, length?: any) {

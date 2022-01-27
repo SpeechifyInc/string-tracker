@@ -1,6 +1,6 @@
 <p>
   <img src="https://img.shields.io/static/v1?label=npm&message=0.0.1-rc4&color=success&style=flat-square">
-  <img src="https://img.shields.io/static/v1?label=coverage&message=90.89%25&color=green&style=flat-square">
+  <img src="https://img.shields.io/static/v1?label=coverage&message=91.5%25&color=green&style=flat-square">
 </p>
 
 # String Tracker
@@ -8,9 +8,9 @@ A library for operating on strings while maintaining changes and index maps tran
 
 ## This Project is WIP
 
-- [ ] Full coverage using Test262 + custom tests
-- [ ] Fuzzing
-- [ ] Benchmarking and optimization
+- [x] 90%+ coverage using Test262 + custom tests
+- [x] Fuzzing
+- [x] Benchmarking and optimization
 
 ## How it works
 
@@ -117,7 +117,7 @@ stringTracker.getIndexOnOriginal(6) // Refers to the 'a' in 'fooar'. 6 - 2 (beca
 
 ## String Prototype functions
 
-The StringTracker includes implementations for every prototype function that would return a new string other than a few exceptions as detailed in the next section. Test262 tests are used for development to maintain spec compliance and anything deviates from the spec should be considered a bug. Any string prototype functions that do not return a new string are passed through to the original String prototype function via a Proxy. Any missing functions not detailed in the next section will be added before 1.0 release.
+The StringTracker includes implementations for every prototype function that would return a new string other than a few exceptions as detailed in the next section. Test262 tests are used for development to maintain spec compliance and anything deviates from the spec is considered a bug. Any string prototype functions that do not return a new string are passed through to the original String prototype function via a Proxy. Any missing functions not detailed in the next section will be added before 1.0 release.
 
 ### Important Note
 
@@ -126,3 +126,7 @@ The StringTracker includes implementations for every prototype function that wou
 ### Differences from String prototype
 
 All the implementations are meant to be run on a StringTracker and will throw a TypeError if they are not. This is unlike the String functions which will coerce the caller if it is not a string and is coercible. https://262.ecma-international.org/12.0/#sec-requireobjectcoercible
+
+### Chunking (New in v1.0)
+
+The changes are now chunked into groups of 64 to optimize for lookup times on strings with a large number of changes (500+). The API remains compatible with pre v1.0 but now includes `initialChunkChanges` as an optional replacement for `initialChanges` in `createStringTracker`. Using `initialChanges` is still supported but should be avoided when performance matters since the changes must be split into chunks on creation of the tracker.

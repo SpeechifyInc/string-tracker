@@ -19,14 +19,23 @@
 
 import {
   addChange,
-  cleanChanges,
+  createChunk,
+  getChange,
   getChangeLength,
   getChangeText,
+  getChunkChanges,
   getOverlap,
+  getPosHelpers,
+  getPosOffset,
   isAdd,
+  isHighestPos,
+  isLowestPos,
   isRemove,
   replaceChange,
+  replaceChanges,
   replaceChangeText,
+  sliceChange,
+  splitChunk,
   throwIfNotStringTracker,
 } from './helpers'
 import {
@@ -69,14 +78,15 @@ type StringTrackerBase = {
   get: () => string
   getOriginal: () => string
   getChanges: () => Change[]
+  getChangeChunks: () => ChangeChunk[]
   getIndexOnModified: (index: number) => number
   getIndexOnOriginal: (index: number) => number
-  getIndexOfChange: (
-    targetIndex: number,
-    shouldSkipChange?: (change: Change) => boolean
-  ) => { offset: number; index: number; change: Change }
-  add: (index: number, text: string) => StringTracker
-  remove: (startIndex: number, endIndex?: number) => StringTracker
+  getPositionOfChange: (targetIndex: number, shouldSkipChange?: (change: Change) => boolean) => FullPosition
+  add(index: number, text: string, inPlace: boolean): undefined
+  add(index: number, text: string): StringTracker
+  // TODO: Would inPlace: true work?
+  remove(startIndex: number, endIndex: number, inPlace: boolean): undefined
+  remove(startIndex: number, endIndex?: number): StringTracker
   [StringTrackerSymbol]: true
 } & StringTrackerPrototype
 
@@ -116,6 +126,7 @@ const trackerPrototype: StringTrackerPrototype & StringPrototype & { length: num
     return this.get()
   },
   [Symbol.iterator]: function* (this: StringTracker) {
+    // TODO: yield* this.get() ?
     for (const char of this.get()) yield char
   },
 }
@@ -127,73 +138,105 @@ export enum StringOp {
   Remove,
 }
 
+type ChunkIndex = number
+type ChangeIndex = number
+type Offset = number
+
+export type ChangePosition = [ChunkIndex, ChangeIndex]
+export type FullPosition = [ChunkIndex, ChangeIndex, Offset]
+export type Position = ChangePosition | FullPosition
+
 export type Change = [StringOp, string] | string
 
-/*
-export function createTrackerChunk(
-  str: string,
-  { initialModified = str, initialChanges = [str] }: { initialModified?: string; initialChanges?: Change[] } = {}
-) {
-  const modifiedStr = initialModified
-  const changes: Change[] = initialChanges
-
-  const get = () => modifiedStr
-  const getOriginal = () => str
-  const getChanges = () => changes
-}
-*/
+type ChunkLength = number
+export type ChangeChunk = [ChunkLength, Change[]]
 
 export function createStringTracker(
   str: string,
-  { initialModified = str, initialChanges = [str] }: { initialModified?: string; initialChanges?: Change[] } = {}
+  {
+    initialModified = str,
+    initialChangeChunks = [[str.length, [str]]],
+    initialChanges,
+  }: { initialModified?: string; initialChanges?: Change[]; initialChangeChunks?: ChangeChunk[] } = {}
 ): StringTracker {
-  const modifiedStr = initialModified
-  const changes: Change[] = initialChanges
+  let modifiedStr: string = initialModified
+  let changeChunks: ChangeChunk[] = initialChanges ? splitChunk(createChunk(initialChanges)) : initialChangeChunks
 
   const get = () => modifiedStr
   const getOriginal = () => str
-  const getChanges = () => changes
+  const getChanges = () => changeChunks.flatMap((change) => change[1])
+  const getChangeChunks = () => changeChunks
 
-  const getIndexOfChange = (targetIndex: number, shouldSkipChange: (change: Change) => boolean = isRemove) => {
-    // If only JS had find with accumulator (transduce)...
-    let index = 0
-    for (const [i, change] of changes.entries()) {
+  const getPositionOfChange = (
+    targetIndex: number,
+    shouldSkipChange: (change: Change) => boolean = isRemove
+  ): FullPosition => {
+    // TODO: Use a find?
+    let changes = getChunkChanges(changeChunks[changeChunks.length - 1])
+    let totalOffset = 0
+    let chunkIndex = 0
+    for (; chunkIndex < changeChunks.length; chunkIndex++) {
+      if (changeChunks[chunkIndex][0] + totalOffset < targetIndex) {
+        totalOffset += changeChunks[chunkIndex][0]
+        continue
+      }
+      changes = getChunkChanges(changeChunks[chunkIndex])
+      break
+    }
+    chunkIndex = Math.min(chunkIndex, changeChunks.length - 1)
+
+    for (let changeIndex = 0; changeIndex < changes.length; changeIndex++) {
+      const change = changes[changeIndex]
       if (shouldSkipChange(change)) continue
-      if (index + getChangeLength(change) > targetIndex) return { offset: targetIndex - index, index: +i, change }
-      index += getChangeLength(change)
+      const length = getChangeLength(change)
+      if (totalOffset + length > targetIndex) {
+        return [chunkIndex, changeIndex, targetIndex - totalOffset]
+      }
+      totalOffset += length
     }
-    const lastChangeIndex =
-      changes.length -
-      changes
-        .slice()
-        .reverse()
-        .findIndex((change) => !shouldSkipChange(change)) -
-      1
+
+    // Didn't find change for index...
+    // Get the last change that isn't skipped
+    let lastChangeIndex = changes.length - 1
+    for (; lastChangeIndex > 0; lastChangeIndex--) {
+      if (!shouldSkipChange(changes[lastChangeIndex])) break
+    }
+
     const lastChange = changes[lastChangeIndex]
-    if (!lastChange) return { offset: 0, index: 0, change: shouldSkipChange(changes[0]) ? changes[1] : changes[0] }
-    return {
-      offset: getChangeLength(lastChange),
-      index: lastChangeIndex,
-      change: lastChange,
-    }
+    return [chunkIndex, lastChangeIndex, getChangeLength(lastChange)]
   }
 
-  const getIndexAfterChanges = (changeIndex: number, shouldSkipChange: (change: Change) => boolean) =>
-    changes
-      .slice(0, changeIndex)
-      .reduce((index, change) => (shouldSkipChange(change) ? index : index + getChangeLength(change)), 0)
+  const getIndexAfterChanges = (position: Position, shouldSkipChange: (change: Change) => boolean) => {
+    let index = 0
+    const previousChunks = changeChunks.slice(0, position[0])
+    const previousChanges = getChunkChanges(changeChunks[position[0]]).slice(0, position[1])
+    for (const chunk of previousChunks) {
+      index += getChunkChanges(chunk).reduce(
+        (index, change) => (shouldSkipChange(change) ? index : index + getChangeLength(change)),
+        0
+      )
+    }
+    index += previousChanges.reduce(
+      (index, change) => (shouldSkipChange(change) ? index : index + getChangeLength(change)),
+      0
+    )
+
+    return index
+  }
 
   // Modified -> Original
   const getIndexOnOriginal = (targetIndex: number) => {
     if (targetIndex > modifiedStr.length || targetIndex < 0) {
       throw new RangeError('targetIndex must be a positive number less than or equal to the length')
     }
-    if (targetIndex === modifiedStr.length) return modifiedStr.length
+    // TODO: Add test
+    if (targetIndex === modifiedStr.length) return str.length
 
-    const { offset, index: lastChangeIndex, change } = getIndexOfChange(targetIndex, isRemove)
-    const index = getIndexAfterChanges(lastChangeIndex, isAdd)
+    const position = getPositionOfChange(targetIndex, isRemove)
+    const change = getChange(changeChunks, position)
+    const index = getIndexAfterChanges(position, isAdd)
 
-    return Math.min(Math.max(index + (isAdd(change) ? 0 : offset), 0), str.length - 1)
+    return Math.min(Math.max(index + (isAdd(change) ? 0 : getPosOffset(position)), 0), str.length - 1)
   }
 
   // Original -> Modified
@@ -201,18 +244,32 @@ export function createStringTracker(
     if (targetIndex > str.length || targetIndex < 0) {
       throw new RangeError('targetIndex must be a positive number less than or equal to the original length')
     }
-    if (targetIndex === str.length) return str.length
+    // TODO: Add test
+    if (targetIndex === str.length) return modifiedStr.length
 
-    const { offset, index: lastChangeIndex, change } = getIndexOfChange(targetIndex, isAdd)
-    const index = getIndexAfterChanges(lastChangeIndex, isRemove)
+    const position = getPositionOfChange(targetIndex, isAdd)
+    const change = getChange(changeChunks, position)
+    const index = getIndexAfterChanges(position, isRemove)
 
-    return Math.min(Math.max(index + (isRemove(change) ? 0 : offset), 0), modifiedStr.length - 1)
+    return Math.min(Math.max(index + (isRemove(change) ? 0 : getPosOffset(position)), 0), modifiedStr.length - 1)
   }
 
-  const add = (index: number, text: string) => {
-    let { offset, index: changeIndex } = getIndexOfChange(index)
-    const newChanges = changes.slice()
+  const add = ((index: number, text: string, inPlace: boolean = false) => {
+    if (typeof text !== 'string') text = String(text)
+    // TODO: Better handling of empty. Probably should handle in code
+    /*
+    if (text.length === 0) {
+      if (inPlace) return
+      return createStringTracker(str, {
+        initialModified: modifiedStr,
+        initialChangeChunks: changeChunks,
+      })
+    }*/
 
+    const position = getPositionOfChange(index)
+    const chunks = inPlace ? changeChunks : changeChunks.slice()
+
+    const { getChange, getNextPos, getPrevPos } = getPosHelpers(chunks)
     // We only need to check the beginning and middle since the offset can only be
     // equal to the length of the string when we are at the end of the string
     // ex. ['hello world']. Add at index of 0 would mean
@@ -227,62 +284,76 @@ export function createStringTracker(
     // (offset: 5, changeIndex: 1) we are cutting like ['hello', 'world', [Add, 'addhere']]
 
     // If the previous was a remove, we try to find the overlap on what we're adding
-    // to prevent adding and removing the same piece of text filling up the changes
-    // array. typeof check is for type inference only
-    const previousChange = newChanges[changeIndex - 1]
-    const currentChange = newChanges[changeIndex]
+    // to prevent adding and removing the same piece of text filling up the changes array.
+    const previousChange = isLowestPos(position) ? undefined : getChange(getPrevPos(position))
+    const currentChange = getChange(position)
+
+    const offset = position[2]
     if (previousChange && offset === 0) {
       const previousText = getChangeText(previousChange)
-      let textToAdd = text
       if (isRemove(previousChange)) {
         const overlapAmount = getOverlap(previousText, text)
 
-        addChange(newChanges, changeIndex, previousText.slice(previousText.length - overlapAmount))
-        replaceChange(
-          newChanges,
-          changeIndex - 1,
-          replaceChangeText(newChanges[changeIndex - 1], previousText.slice(0, previousText.length - overlapAmount))
-        )
-
-        textToAdd = text.slice(overlapAmount)
-
-        changeIndex++
+        replaceChanges(chunks, getPrevPos(position), position, [
+          // Has to be preivousText.length because overlapAmount can be 0
+          sliceChange(previousChange, 0, previousText.length - overlapAmount),
+          previousText.slice(previousText.length - overlapAmount),
+          [StringOp.Add, text.slice(overlapAmount)],
+        ])
+      } else {
+        addChange(chunks, position, [StringOp.Add, text])
       }
-      addChange(newChanges, changeIndex, [StringOp.Add, textToAdd])
     } else if (offset <= getChangeLength(currentChange)) {
       if (typeof currentChange === 'string') {
-        newChanges[changeIndex] = currentChange.slice(0, offset)
-        addChange(newChanges, changeIndex + 1, [StringOp.Add, text])
-        addChange(newChanges, changeIndex + 2, currentChange.slice(offset))
+        replaceChanges(chunks, position, getNextPos(position), [
+          currentChange.slice(0, offset),
+          [StringOp.Add, text],
+          currentChange.slice(offset),
+        ])
       }
       // Inferred that it's an Add because currentChange cannot be a Remove
       else {
         const currentText = getChangeText(currentChange)
         replaceChange(
-          newChanges,
-          changeIndex,
-          replaceChangeText(newChanges[changeIndex], currentText.slice(0, offset) + text + currentText.slice(offset))
+          chunks,
+          position,
+          replaceChangeText(getChange(position), currentText.slice(0, offset) + text + currentText.slice(offset))
         )
       }
     } else {
-      newChanges.push([StringOp.Add, text])
+      addChange(
+        chunks,
+        [chunks.length - 1, getChunkChanges(chunks[chunks.length - 1]).length - 1],
+        [StringOp.Add, text]
+      )
+    }
+
+    const newModifiedStr = modifiedStr.slice(0, index) + text + modifiedStr.slice(index)
+    if (inPlace) {
+      modifiedStr = newModifiedStr
+      return
     }
 
     return createStringTracker(str, {
-      initialModified: modifiedStr.slice(0, index) + text + modifiedStr.slice(index),
-      initialChanges: cleanChanges(newChanges),
+      initialModified: newModifiedStr,
+      initialChangeChunks: chunks,
     })
-  }
+  }) as StringTracker['add']
 
-  const remove = (startIndex: number, endIndex: number = modifiedStr.length) => {
+  const remove = ((startIndex: number, endIndex: number = modifiedStr.length, inPlace: boolean = false) => {
     if (startIndex > endIndex) throw new RangeError('startIndex must be less than or equal to endIndex')
     if (endIndex > modifiedStr.length)
       throw new RangeError('endIndex must be less than or equal to the length of the modified string')
 
     const newModifiedStr = modifiedStr.slice(0, startIndex) + modifiedStr.slice(endIndex)
 
-    let { offset, index: changeIndex } = getIndexOfChange(startIndex)
-    const newChanges = changes.slice()
+    const fullPosition = getPositionOfChange(startIndex)
+    const offset = getPosOffset(fullPosition)
+    let position = fullPosition.slice(0, 2) as ChangePosition
+    const chunks = inPlace ? changeChunks : changeChunks.slice()
+    const originalPosition = position
+
+    const { addToPosition, getChange, getNextPos } = getPosHelpers(chunks)
 
     // We first check only the first change because of the offset. In all other cases,
     // we simply remove and modify the original change. If it becomes empty, it will be
@@ -295,80 +366,74 @@ export function createStringTracker(
     // (offset: 0, changeIndex: 0) we are cutting like ['helloworld'] where helloworld is removed
 
     // Check first individually to handle offsets
-    const currentChange = newChanges[changeIndex]
+    const currentChange = getChange(position)
     const currentText = getChangeText(currentChange)
-    replaceChange(
-      newChanges,
-      changeIndex,
-      replaceChangeText(newChanges[changeIndex], currentText.slice(0, offset))
-    )
+
+    // Remove the text from the change
+    let changesToRemove = 1
+    const changesToAdd: Change[] = [replaceChangeText(getChange(position), currentText.slice(0, offset))]
+
     if (typeof currentChange === 'string') {
-      addChange(newChanges, changeIndex + 1, [
-        StringOp.Remove,
-        currentText.slice(offset, offset + endIndex - startIndex),
-      ])
+      changesToAdd.push([StringOp.Remove, currentText.slice(offset, offset + endIndex - startIndex)])
     }
+
     // Check if we are already done
-    if (currentText.length > offset + endIndex - startIndex) {
-      if (typeof currentChange === 'string') {
-        addChange(newChanges, changeIndex + 2, currentText.slice(offset + endIndex - startIndex))
-      }
-      // Inferred that it's an Add
-      else {
-        addChange(newChanges, changeIndex + 2, [
-          StringOp.Add,
-          currentText.slice(offset + endIndex - startIndex),
-        ])
-      }
+    if (currentText.length > offset + (endIndex - startIndex)) {
+      changesToAdd.push(sliceChange(currentChange, offset + endIndex - startIndex))
     }
+
     startIndex += currentText.length - offset
 
     // Loop until we no longer need to remove
-    for (changeIndex++; startIndex < endIndex; changeIndex++) {
-      const currentChange = newChanges[changeIndex]
-      if (!currentChange) break
-      if (isRemove(currentChange)) continue
+    if (!isHighestPos(chunks, position)) {
+      for (position = getNextPos(position); startIndex < endIndex; position = getNextPos(position)) {
+        const currentChange = getChange(position)
+        if (!currentChange) break
 
-      const currentText = getChangeText(currentChange)
-      // Add the remove change for tracking and adjust the string for what we removed
-      if (typeof currentChange === 'string') {
-        addChange(newChanges, changeIndex, [StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
-        changeIndex++
-        if (newChanges[changeIndex]) {
-          replaceChange(
-            newChanges,
-            changeIndex,
-            replaceChangeText(newChanges[changeIndex], currentText.slice(endIndex - startIndex))
-          )
+        // We always need to remove the change that we iterate on
+        changesToRemove++
+        if (isRemove(currentChange)) {
+          changesToAdd.push(currentChange)
+          continue
         }
-      }
-      // Inferred that it's an Add. We only need to remove content with no need to track since this content
-      // isn't on the original string
-      else {
-        replaceChange(
-          newChanges,
-          changeIndex,
-          replaceChangeText(newChanges[changeIndex], currentText.slice(endIndex - startIndex))
-        )
-      }
 
-      startIndex += currentText.length
+        const currentText = getChangeText(currentChange)
+        // If we have a string, add the remove change for tracking and adjust the string for what we removed
+        // The only other case would be an add but we don't track content being removed from those changes
+        // since it wasn't on the original string
+        if (typeof currentChange === 'string') {
+          changesToAdd.push([StringOp.Remove, currentText.slice(0, endIndex - startIndex)])
+        }
+        // Remove the content from the original change
+        changesToAdd.push(replaceChangeText(getChange(position), currentText.slice(endIndex - startIndex)))
+
+        startIndex += currentText.length
+      }
     }
 
+    const startPos = originalPosition
+    const endPos = addToPosition(originalPosition, changesToRemove)
+    replaceChanges(chunks, startPos, endPos, changesToAdd)
+
+    if (inPlace) {
+      modifiedStr = newModifiedStr
+      return
+    }
     return createStringTracker(str, {
       initialModified: newModifiedStr,
-      initialChanges: cleanChanges(newChanges),
+      initialChangeChunks: chunks,
     })
-  }
+  }) as StringTracker['remove']
 
   const tracker: StringTracker = new Proxy<StringTrackerBase>(
     {
       get,
       getOriginal,
       getChanges,
+      getChangeChunks,
       getIndexOnModified,
       getIndexOnOriginal,
-      getIndexOfChange,
+      getPositionOfChange,
       add,
       remove,
       concat,

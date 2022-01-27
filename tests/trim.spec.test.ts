@@ -1,4 +1,4 @@
-import { createStringTracker } from '..'
+import { createStringTracker } from '../src'
 import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function runTrimTest(str: string) {

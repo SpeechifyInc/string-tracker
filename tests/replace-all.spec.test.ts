@@ -1,4 +1,4 @@
-import { createStringTracker } from '..'
+import { createStringTracker } from '../src'
 
 it('should throw when not called on a StringTracker', () => {
   const tracker = createStringTracker('this is my word')

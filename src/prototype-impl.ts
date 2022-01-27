@@ -1,7 +1,10 @@
 import { createStringTracker, StringTracker } from '.'
 import {
+  getChange,
   getChangeLength,
   getChangeText,
+  getPosChangeIndex,
+  getPosOffset,
   isRemove,
   sliceChange,
   stringToRegex,
@@ -11,12 +14,13 @@ import {
   toUint32,
 } from './helpers'
 
+const replaceUtilsRegex = /(\$\$)|(\$\d{1,2})|(\$')|(\$`)|(\$&)/
 /**
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace#specifying_a_string_as_a_parameter
  * Does not support named capture groups
  */
 function createReplacer(replaceStr: string, isRegex: boolean): (substring: string, ...args: any[]) => string {
-  const replaceStrSplit = replaceStr.split(/(\$\$)|(\$\d{1,2})|(\$')|(\$`)|(\$&)/).filter(Boolean)
+  const replaceStrSplit = replaceStr.split(replaceUtilsRegex).filter(Boolean)
 
   return (substring, ...args) =>
     replaceStrSplit.reduce((str, curr) => {
@@ -70,7 +74,7 @@ export function replace(
   searchValue: string | RegExp,
   replacer: string | ((substring: string, ...args: any[]) => string)
 ): StringTracker {
-  let tracker = this
+  let tracker = this.slice()
 
   // Throw TypeError when attempting to call this function on an object that does not contain
   // the StringTrackerSymbol identifier
@@ -85,6 +89,9 @@ export function replace(
     replacer = String(replacer)
   }
 
+  // Doesn't use any $ operators and is a string means we can do reverse iteration
+  const canDoReverseIteration = typeof replacer === 'string' && !replaceUtilsRegex.test(replacer)
+
   const str = tracker.get()
   const replacerFunc =
     typeof replacer === 'function' ? replacer : createReplacer(replacer, searchValue instanceof RegExp)
@@ -95,6 +102,10 @@ export function replace(
       ? [...str.matchAll(searchValue)]
       : ([str.match(searchValue)].filter(Boolean) as RegExpMatchArray[])
 
+  // It's faster to do reverse iteration because getIndexOfChange only requires a single iteration
+  // pointing to the first index rather than iterating through the size of the last chunk
+  if (canDoReverseIteration) matches.reverse()
+
   matches.reduce((indexOffset, match) => {
     // Match index can never be undefined because the only case where it would be
     // is if we used the g flag. We handle this case with matchAll
@@ -102,7 +113,10 @@ export function replace(
     // It is necessary to convert to string here since the following code is expecting a string and
     // the replacer function can return a non-string according to the spec and should be casted
     const strToAdd = String(replacerFunc(match[0], ...match.slice(1), match.index!, str))
-    tracker = tracker.remove(startIndex, startIndex + match[0].length).add(startIndex, strToAdd)
+    tracker.remove(startIndex, startIndex + match[0].length, true)
+    if (strToAdd.length > 0) tracker.add(startIndex, strToAdd, true)
+
+    if (canDoReverseIteration) return 0
     return indexOffset - match[0].length + strToAdd.length
   }, 0)
 
@@ -171,9 +185,11 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
   sanitizedEndIndex = Math.round(Math.max(Math.min(sanitizedEndIndex, trackerLength), 0))
 
   const sliceLength = sanitizedEndIndex - startIndex
+  if (sliceLength <= 0) return createStringTracker('')
 
-  if (sanitizedEndIndex <= startIndex) return createStringTracker('')
-  const { index, offset, change } = this.getIndexOfChange(startIndex)
+  const position = this.getPositionOfChange(startIndex)
+  const offset = getPosOffset(position)
+  const change = getChange(this.getChangeChunks(), position)
 
   const slicedOriginalStr = this.getOriginal().slice(
     this.getIndexOnOriginal(startIndex),
@@ -189,7 +205,7 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
       initialChanges: slicedChanges,
     })
 
-  for (const change of this.getChanges().slice(index + 1)) {
+  for (const change of this.getChanges().slice(getPosChangeIndex(position) + 1)) {
     if (isRemove(change)) {
       slicedChanges.push(change)
       continue
@@ -221,6 +237,7 @@ export function concat(this: StringTracker, ...trackers: StringTracker[]): Strin
 
   const concatTrackers = [this, ...trackers]
 
+  // TODO: Reimplement
   const newChanges = concatTrackers.flatMap((tracker) => tracker.getChanges())
   const newModifiedStr = concatTrackers.map((tracker) => tracker.get()).join('')
   const newStr = concatTrackers.map((tracker) => tracker.getOriginal()).join('')
