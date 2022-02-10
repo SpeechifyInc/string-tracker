@@ -133,10 +133,14 @@ export const isString = (change: Change | undefined) => typeof change === 'strin
 export const getChangeText = (change: Change): string => (typeof change === 'string' ? change : change[1])
 export const getChangeLength = (change: Change) => getChangeText(change).length
 export const getTypeBasedChangeLength = (change: Change) => getChangeLength(change) * (isRemove(change) ? -1 : 1)
-export const getChangesCharCount = (changes: Change[]) =>
-  changes.reduce((length, change) => length + (isRemove(change) ? 0 : getChangeLength(change)), 0)
+export const getChangesCharCountImpl = (changes: Change[], shouldSkipChange: (change: Change) => boolean = isRemove) =>
+  changes.reduce((length, change) => length + (shouldSkipChange(change) ? 0 : getChangeLength(change)), 0)
+export const getChangesCharCount = (changes: Change[]) => getChangesCharCountImpl(changes, isRemove)
+export const getChangesOriginalCharCount = (changes: Change[]) => getChangesCharCountImpl(changes, isAdd)
+
 export const createChunk = (changes: Change[]): ChangeChunk => [
   getChangesCharCount(changes),
+  getChangesOriginalCharCount(changes),
   changes.length === 0 ? [''] : changes,
 ]
 
@@ -144,7 +148,8 @@ export const createChunk = (changes: Change[]): ChangeChunk => [
 // Chunks
 //---------------
 export const getChunkChars = (chunk: ChangeChunk) => chunk[0]
-export const getChunkChanges = (chunk: ChangeChunk) => chunk[1]
+export const getChunkOriginalChars = (chunk: ChangeChunk) => chunk[1]
+export const getChunkChanges = (chunk: ChangeChunk) => chunk[2]
 
 const shouldChunkBeSplit = (chunk: ChangeChunk) => getChunkChanges(chunk).length > CHUNK_SIZE * 2
 export const splitChunk = (chunk: ChangeChunk) => {
@@ -158,7 +163,7 @@ export const splitChunk = (chunk: ChangeChunk) => {
       chunkChanges.slice((numOfChunks - 1) * CHUNK_SIZE),
     ]
 
-    return splitChunkChanges.map<ChangeChunk>((changes) => [getChangesCharCount(changes), changes])
+    return splitChunkChanges.map<ChangeChunk>(createChunk)
   }
   return [chunk]
 }
@@ -214,11 +219,12 @@ export const addChangesAtPosition = (chunks: ChangeChunk[], pos: Position, chang
   if (changes.length === 0) return
 
   const charsAdded = getChangesCharCount(changes)
+  const charsRemoved = getChangesOriginalCharCount(changes)
   const chunk = chunks[pos[0]]
 
   const chunkChanges = getChunkChanges(chunk).slice()
   chunkChanges.splice(pos[1], 0, ...changes)
-  chunks[pos[0]] = [chunk[0] + charsAdded, chunkChanges] as ChangeChunk
+  chunks[pos[0]] = [chunk[0] + charsAdded, chunk[1] + charsRemoved, chunkChanges] as ChangeChunk
 }
 
 export const removeChangesBetweenPositions = (chunks: ChangeChunk[], startPos: Position, endPos: Position) => {
@@ -230,15 +236,16 @@ export const removeChangesBetweenPositions = (chunks: ChangeChunk[], startPos: P
 
     const isRemovingChunk = numToRemove === chunkChanges.length
     if (isRemovingChunk) {
-      chunks[currChunk] = [0, []]
+      chunks[currChunk] = [0, 0, []]
       continue
     }
 
     const clonedChanges = chunkChanges.slice()
     const removedChanges = clonedChanges.splice(startIndex, numToRemove)
     const charsRemoved = getChangesCharCount(removedChanges)
+    const charsAdded = getChangesOriginalCharCount(removedChanges)
 
-    chunks[currChunk] = [chunks[currChunk][0] - charsRemoved, clonedChanges]
+    chunks[currChunk] = [chunks[currChunk][0] - charsRemoved, chunks[currChunk][1] - charsAdded, clonedChanges]
   }
 }
 
@@ -284,10 +291,10 @@ export const replaceChanges = (
   // TODO: Check if this is actually necessary
   // 6. Special case since we never want to have an empty array of chunks
   if (chunks.length === 0) {
-    chunks.push([0, ['']])
+    chunks.push([0, 0, ['']])
   }
   if (chunks.length === 1 && !getChunkChanges(chunks[0]).some((change) => !isRemove(change))) {
-    chunks[0] = [0, ['', ...getChunkChanges(chunks[0])]]
+    chunks[0] = [0, 0, ['', ...getChunkChanges(chunks[0])]]
   }
   return chunksRemoved
 }

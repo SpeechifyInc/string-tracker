@@ -81,14 +81,18 @@ export function validateChangeCleanliness(tracker: StringTracker) {
 export function validateChunksCharCount(tracker: StringTracker) {
   return tracker.getChangeChunks().every(
     (chunk) =>
-      chunk[1]
+      chunk[2]
         .filter((change) => !isRemove(change))
         .map(getChangeLength)
-        .reduce((a, b) => a + b, 0) === chunk[0]
+        .reduce((a, b) => a + b, 0) === chunk[0] &&
+      chunk[2]
+        .filter((change) => !isAdd(change))
+        .map(getChangeLength)
+        .reduce((a, b) => a + b, 0) === chunk[1]
   )
 }
 
 /** Validate that the chunks are a maximum of 2x the CHUNK_SIZE */
 export function validateChunkSizes(tracker: StringTracker) {
-  return tracker.getChangeChunks().every((chunk) => chunk[1].length < CHUNK_SIZE * 2 + 1)
+  return tracker.getChangeChunks().every((chunk) => chunk[2].length < CHUNK_SIZE * 2 + 1)
 }

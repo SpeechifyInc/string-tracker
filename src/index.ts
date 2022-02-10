@@ -149,13 +149,13 @@ export type Position = ChangePosition | FullPosition
 export type Change = [StringOp, string] | string
 
 type ChunkLength = number
-export type ChangeChunk = [ChunkLength, Change[]]
+export type ChangeChunk = [ChunkLength, ChunkLength, Change[]]
 
 export function createStringTracker(
   str: string,
   {
     initialModified = str,
-    initialChangeChunks = [[str.length, [str]]],
+    initialChangeChunks = [[str.length, str.length, [str]]],
     initialChanges,
   }: { initialModified?: string; initialChanges?: Change[]; initialChangeChunks?: ChangeChunk[] } = {}
 ): StringTracker {
@@ -164,7 +164,7 @@ export function createStringTracker(
 
   const get = () => modifiedStr
   const getOriginal = () => str
-  const getChanges = () => changeChunks.flatMap((change) => change[1])
+  const getChanges = () => changeChunks.flatMap(getChunkChanges)
   const getChangeChunks = () => changeChunks
 
   const getPositionOfChange = (
@@ -175,9 +175,10 @@ export function createStringTracker(
     let changes = getChunkChanges(changeChunks[changeChunks.length - 1])
     let totalOffset = 0
     let chunkIndex = 0
+    const chunkOffsetIndex = shouldSkipChange === isRemove ? 0 : 1
     for (; chunkIndex < changeChunks.length; chunkIndex++) {
-      if (changeChunks[chunkIndex][0] + totalOffset < targetIndex) {
-        totalOffset += changeChunks[chunkIndex][0]
+      if (changeChunks[chunkIndex][chunkOffsetIndex] + totalOffset < targetIndex) {
+        totalOffset += changeChunks[chunkIndex][chunkOffsetIndex]
         continue
       }
       changes = getChunkChanges(changeChunks[chunkIndex])

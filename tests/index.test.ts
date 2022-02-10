@@ -171,7 +171,7 @@ test('remove from end of string to end', () => {
 
 it('should remove subsequent adds/strings with a remove in between in changes array ', () => {
   const tracker = createStringTracker('asda pog', {
-    initialChangeChunks: [[8, ['asd', [0, ' '], [1, 'a'], ' ', [0, ' '], 'pog']]],
+    initialChangeChunks: [[8, 8, ['asd', [0, ' '], [1, 'a'], ' ', [0, ' '], 'pog']]],
     initialModified: 'asd  pog',
   }).remove(3, 6)
 

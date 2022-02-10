@@ -31,7 +31,7 @@ stringTracker = stringTracker.remove(4, 9)
 stringTracker.get() // hefoworld
 ```
 
-#### `createStringTracker(originalText: string, { initialModified?: string, initialChanges?: Change[] }): StringTracker`
+#### `createStringTracker(originalText: string, { initialModified?: string, initialChanges?: Change[], initialChunkChanges?: ChangeChunk[], }): StringTracker`
 
 Used to create a new instance of the string tracker. The second argument is used internally for creating new trackers on add and remove operations.
 
