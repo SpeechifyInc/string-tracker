@@ -185,7 +185,6 @@ export const cleanChanges = (chunks: ChangeChunk[], startPos: Position, endPos: 
       // Remove empty changes
       if (getChangeLength(change) === 0) {
         removeChangesBetweenPositions(chunks, currPosition, getNextPos(chunks, currPosition))
-        if (currChunk >= chunks.length) console.log(currChunk, chunks)
         chunkChanges = getChunkChanges(chunks[currChunk])
         currChange--
         endIndex--
@@ -249,6 +248,7 @@ export const removeChangesBetweenPositions = (chunks: ChangeChunk[], startPos: P
   }
 }
 
+// TODO: Do we need to return that value?
 /**
  * Removes changes between two positions and insert newChanges in their place.
  * Return value is the number of chunks removed during this process
@@ -294,7 +294,7 @@ export const replaceChanges = (
     chunks.push([0, 0, ['']])
   }
   if (chunks.length === 1 && !getChunkChanges(chunks[0]).some((change) => !isRemove(change))) {
-    chunks[0] = [0, 0, ['', ...getChunkChanges(chunks[0])]]
+    chunks[0] = [chunks[0][0], chunks[0][1], ['', ...getChunkChanges(chunks[0])]]
   }
   return chunksRemoved
 }
