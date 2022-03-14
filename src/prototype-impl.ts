@@ -210,11 +210,14 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
       slicedChanges.push(change)
       continue
     }
-    const slicedChangesLength = slicedChanges.map(getChangeLength).reduce((a, b) => a + b, 0)
+    const slicedChangesLength = slicedChanges.reduce(
+      (length, change) => length + (isRemove(change) ? 0 : getChangeLength(change)),
+      0
+    )
     const charsToAdd = sliceLength - slicedChangesLength
+    if (charsToAdd <= 0) break
 
-    slicedChanges.push(sliceChange(change, 0, charsToAdd))
-    if (charsToAdd <= getChangeLength(change)) break
+    slicedChanges.push(getChangeLength(change) <= charsToAdd ? change : sliceChange(change, 0, charsToAdd))
   }
 
   return createStringTracker(slicedOriginalStr, {
