@@ -234,6 +234,7 @@ export function createStringTracker(
     if (targetIndex === modifiedStr.length) return str.length
 
     const position = getPositionOfChange(targetIndex, isRemove)
+    if (isHighestPos(changeChunks, position)) return str.length
     const change = getChange(changeChunks, position)
     const index = getIndexAfterChanges(position, isAdd)
 
@@ -249,6 +250,8 @@ export function createStringTracker(
     if (targetIndex === str.length) return modifiedStr.length
 
     const position = getPositionOfChange(targetIndex, isAdd)
+    // TODO: Add test
+    if (isHighestPos(changeChunks, position)) return modifiedStr.length
     const change = getChange(changeChunks, position)
     const index = getIndexAfterChanges(position, isRemove)
 
