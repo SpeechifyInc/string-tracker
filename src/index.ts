@@ -24,6 +24,7 @@ import {
   getChangeLength,
   getChangeText,
   getChunkChanges,
+  getNextPos,
   getOverlap,
   getPosHelpers,
   getPosOffset,
@@ -230,13 +231,15 @@ export function createStringTracker(
     if (targetIndex > modifiedStr.length || targetIndex < 0) {
       throw new RangeError('targetIndex must be a positive number less than or equal to the length')
     }
-    // TODO: Add test
     if (targetIndex === modifiedStr.length) return str.length
 
     const position = getPositionOfChange(targetIndex, isRemove)
-    if (isHighestPos(changeChunks, position)) return str.length
     const change = getChange(changeChunks, position)
     const index = getIndexAfterChanges(position, isAdd)
+
+    if (isHighestPos(changeChunks, getNextPos(changeChunks, position)) && isAdd(change)) {
+      return str.length
+    }
 
     return Math.min(Math.max(index + (isAdd(change) ? 0 : getPosOffset(position)), 0), str.length - 1)
   }
@@ -246,14 +249,15 @@ export function createStringTracker(
     if (targetIndex > str.length || targetIndex < 0) {
       throw new RangeError('targetIndex must be a positive number less than or equal to the original length')
     }
-    // TODO: Add test
     if (targetIndex === str.length) return modifiedStr.length
 
     const position = getPositionOfChange(targetIndex, isAdd)
-    // TODO: Add test
-    if (isHighestPos(changeChunks, position)) return modifiedStr.length
     const change = getChange(changeChunks, position)
     const index = getIndexAfterChanges(position, isRemove)
+
+    if (isHighestPos(changeChunks, getNextPos(changeChunks, position)) && isRemove(change)) {
+      return modifiedStr.length
+    }
 
     return Math.min(Math.max(index + (isRemove(change) ? 0 : getPosOffset(position)), 0), modifiedStr.length - 1)
   }

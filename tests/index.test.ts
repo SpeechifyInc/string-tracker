@@ -156,7 +156,7 @@ test('remove from end of string to end', () => {
   expectReversable(trackedStr, [13, 14]) // 13 -> 'r' in 'word'
 
   expect(trackedStr.getIndexOnOriginal(14)).toBe(13)
-  expect(trackedStr.getIndexOnModified(14)).toBe(14) // 14 -> 'd' in 'word'
+  expect(trackedStr.getIndexOnModified(14)).toBe(15) // 14 -> 'd' in 'word'
 
   expect(trackedStr.getChanges()).toStrictEqual([
     [StringOp.Add, 'yo'],
@@ -198,4 +198,12 @@ it('getIndexOnModified should return modified string length when called with ori
 
 it('getIndexOnModified should throw a RangeError when called with a negative number', () => {
   expect(() => createStringTracker('asd').getIndexOnModified(-1))
+})
+
+it('should return the length of the modified string when the index on original is the last change', () => {
+  expect(createStringTracker('hello world this').remove(12).getIndexOnModified(13)).toEqual(12)
+})
+
+it('should return the length of the original string when the index on modified is the last change', () => {
+  expect(createStringTracker('hello world ').add(12, 'this').getIndexOnOriginal(13)).toEqual(12)
 })
