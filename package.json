@@ -18,7 +18,8 @@
     "build": "rm -rf dist && tsc -p tsconfig.cjs.json && tsc -p tsconfig.mjs.json && ./fix-up.sh",
     "fuzz": "esbuild --format=esm --bundle --target=node12 --platform=node --external:chalk --outfile=.cache/fuzzer.mjs tests/fuzzer/main.ts && node .cache/fuzzer.mjs",
     "test": "jest",
-    "test-watch": "jest --watch"
+    "test-watch": "jest --watch",
+    "prepublish": "npm run build"
   },
   "repository": {
     "type": "git",
