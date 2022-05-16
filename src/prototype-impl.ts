@@ -1,4 +1,4 @@
-import { createStringTracker, StringTracker } from '.'
+import { createStringTracker, FullPosition, StringTracker } from '.'
 import {
   getChange,
   getChangeLength,
@@ -187,7 +187,7 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
   const sliceLength = sanitizedEndIndex - startIndex
   if (sliceLength <= 0) return createStringTracker('')
 
-  const position = this.getPositionOfChange(startIndex)
+  const position = startIndex === 0 ? [0, 0, 0] as FullPosition : this.getPositionOfChange(startIndex)
   const offset = getPosOffset(position)
   const change = getChange(this.getChangeChunks(), position)
 

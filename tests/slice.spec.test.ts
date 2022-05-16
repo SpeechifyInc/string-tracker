@@ -1,25 +1,26 @@
-import { createStringTracker } from '../src'
+import { createStringTracker, StringTracker, StringTrackerSymbol } from '../src'
 import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function createSliceTest(str: string, start?: any, end?: any) {
   return () => runSliceTest(str, start, end)
 }
 
-function runSliceTest(str: string, start?: any, end?: any) {
-  const tracker = createStringTracker(str)
+function runSliceTest(str: string | StringTracker, start?: any, end?: any) {
+  const tracker = typeof str === 'string' ? createStringTracker(str) : str
 
-  const actualSlice = str.slice(start, end)
+  const actualSlice = tracker.getOriginal().slice(start, end)
   const trackerSlice = tracker.slice(start, end)
 
   expect(trackerSlice.get()).toEqual(actualSlice)
   expect(getModifiedFromChanges(trackerSlice)).toEqual(actualSlice)
-  expect(validateChanges(tracker)).toEqual(true)
+  validateChanges(tracker)
 }
 
 it('should include the beginning changes when slicing from 0', () => {
-  const tracker = createStringTracker('aaa this is my word').remove(0, 4)
-  expect(tracker.slice(0).getOriginal()).toEqual('aaa this is my word')
-  expect(tracker.slice(0).get()).toEqual('this is my word')
+  const tracker = createStringTracker('aaa this is my word').remove(0, 4).slice(0)
+  validateChanges(tracker)
+  expect(tracker.getOriginal()).toEqual('aaa this is my word')
+  expect(tracker.get()).toEqual('this is my word')
 })
 
 it('should include the ending changes when slicing from end', () => {
