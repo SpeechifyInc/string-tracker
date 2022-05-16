@@ -16,6 +16,18 @@ function runSliceTest(str: string, start?: any, end?: any) {
   expect(validateChanges(tracker)).toEqual(true)
 }
 
+it('should include the beginning changes when slicing from 0', () => {
+  const tracker = createStringTracker('aaa this is my word').remove(0, 4)
+  expect(tracker.slice(0).getOriginal()).toEqual('aaa this is my word')
+  expect(tracker.slice(0).get()).toEqual('this is my word')
+})
+
+it('should include the ending changes when slicing from end', () => {
+  const tracker = createStringTracker('this is my word aaa').remove(15)
+  expect(tracker.slice(0).getOriginal()).toEqual('this is my word aaa')
+  expect(tracker.slice(0, 16).get()).toEqual('this is my word')
+})
+
 it('should throw when not called on a StringTracker', () => {
   const tracker = createStringTracker('this is my word')
   // @ts-ignore

@@ -192,7 +192,7 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
   const change = getChange(this.getChangeChunks(), position)
 
   const slicedOriginalStr = this.getOriginal().slice(
-    this.getIndexOnOriginal(startIndex),
+    startIndex === 0 ? 0 : this.getIndexOnOriginal(startIndex),
     this.getIndexOnOriginal(sanitizedEndIndex)
   )
 
