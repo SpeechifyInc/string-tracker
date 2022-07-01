@@ -100,7 +100,9 @@ export function replace(
   const matches =
     isGlobal && searchValue instanceof RegExp
       ? [...str.matchAll(searchValue)]
-      : ([str.match(searchValue)].filter(Boolean) as RegExpMatchArray[])
+      : ([str.match(searchValue instanceof RegExp ? searchValue : stringToRegex(searchValue, ''))].filter(
+          Boolean
+        ) as RegExpMatchArray[])
 
   // It's faster to do reverse iteration because getIndexOfChange only requires a single iteration
   // pointing to the first index rather than iterating through the size of the last chunk
@@ -187,7 +189,7 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
   const sliceLength = sanitizedEndIndex - startIndex
   if (sliceLength <= 0) return createStringTracker('')
 
-  const position = startIndex === 0 ? [0, 0, 0] as FullPosition : this.getPositionOfChange(startIndex)
+  const position = startIndex === 0 ? ([0, 0, 0] as FullPosition) : this.getPositionOfChange(startIndex)
   const offset = getPosOffset(position)
   const change = getChange(this.getChangeChunks(), position)
 

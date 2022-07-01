@@ -209,3 +209,5 @@ it(
   'should respect matching results of capture group in searchValue regexp',
   createReplaceTest('aaaaaaaaaa,aaaaaaaaaaaaaaa', /^(a+)\1*,\1+$/, '$1')
 )
+
+it('should work with invalid regexp as searchValue', createReplaceTest('hello[world', '[', 'test'))
