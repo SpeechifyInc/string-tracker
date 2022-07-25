@@ -54,7 +54,9 @@ import {
   slice,
   concat,
 } from './prototype-impl'
+import type { CustomInspectFunction } from 'node:util'
 
+const CustomInspectSymbol = Symbol.for('nodejs.util.inspect.custom')
 export const StringTrackerSymbol = Symbol.for('string-tracker')
 
 type StringTrackerPrototype = {
@@ -89,6 +91,7 @@ type StringTrackerBase = {
   remove(startIndex: number, endIndex: number, inPlace: boolean): undefined
   remove(startIndex: number, endIndex?: number): StringTracker
   [StringTrackerSymbol]: true
+  [CustomInspectSymbol]: CustomInspectFunction
 } & StringTrackerPrototype
 
 type StringPrototype = {
@@ -464,6 +467,14 @@ export function createStringTracker(
         for (const char of this.get()) yield char
       },
       [StringTrackerSymbol]: true,
+      [CustomInspectSymbol]: ((_, options) =>
+        options.stylize('"', 'string') +
+        getChanges()
+          .map((change) =>
+            options.stylize(getChangeText(change), isAdd(change) ? 'boolean' : isRemove(change) ? 'regexp' : 'string')
+          )
+          .join('') +
+        options.stylize('"', 'string')) as CustomInspectFunction,
     },
     {
       get(target, prop) {

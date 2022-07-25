@@ -33,6 +33,7 @@
   "homepage": "https://github.com/Saghen/string-tracker#readme",
   "devDependencies": {
     "@types/jest": "^26.0.24",
+    "@types/node": "^18.6.1",
     "chalk": "^5.0.0",
     "esbuild": "^0.14.14",
     "friendly-words": "^1.2.0",
