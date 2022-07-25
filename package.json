@@ -1,6 +1,6 @@
 {
   "name": "@saghen/string-tracker",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "A zero dependency library for operating on strings while maintaining changes and index maps transparently",
   "engines": {
     "node": ">=12"
