@@ -1,6 +1,6 @@
 <p>
-  <img src="https://img.shields.io/npm/v/@saghen/string-tracker?color=success&style=flat-square">
-  <img src="https://img.shields.io/static/v1?label=coverage&message=93%25&color=green&style=flat-square">
+  <img src="https://img.shields.io/npm/v/@saghen/string-tracker?style=flat-square">
+  <img src="https://img.shields.io/static/v1?label=coverage&message=93%25&color=success&style=flat-square">
 </p>
 
 # String Tracker
