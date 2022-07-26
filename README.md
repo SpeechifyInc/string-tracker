@@ -4,7 +4,7 @@
 </p>
 
 # String Tracker
-A zero dependency library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a sparse list of add, remove and regular string changes.
+A zero dependency library for operating on strings while maintaining changes and index maps transparently. This is done by keeping a sparse list of add, remove and regular string changes. The library implements the String prototype functions so that you can do `tracker.replace("foo", "bar").slice(0, 10).trim()`. This is the preferred way to work with the tracker, but it also exposes many internal functions for advanced use cases.
 
 ## How it works
 
