@@ -190,6 +190,36 @@ it('getIndexOnOriginal should return original string length when called with mod
   expect(trackedStr.getIndexOnOriginal(trackedStr.length)).toEqual(trackedStr.getOriginal().length)
 })
 
+it('getIndexOnOriginal should return index of char on start boundary with remove', () => {
+  const tracker = createStringTracker('hello world').remove(0, 2)
+  expect(tracker.getIndexOnOriginal(0)).toEqual(2)
+  expect(tracker.getIndexOnOriginal(1)).toEqual(3)
+})
+
+it('getIndexOnOriginal should return index of char on start boundary with add', () => {
+  const tracker = createStringTracker('hello world').add(0, 'foo')
+  expect(tracker.getIndexOnOriginal(3)).toEqual(0)
+  expect(tracker.getIndexOnOriginal(2)).toEqual(0)
+  expect(tracker.getIndexOnOriginal(1)).toEqual(0)
+  expect(tracker.getIndexOnOriginal(0)).toEqual(0)
+})
+
+it('getIndexOnOriginal should return index of char order independent', () => {
+  const addFirst = createStringTracker('hello world').add(0, 'foo').remove(3, 5)
+  expect(addFirst.getIndexOnOriginal(4)).toEqual(3)
+  expect(addFirst.getIndexOnOriginal(3)).toEqual(2)
+  expect(addFirst.getIndexOnOriginal(2)).toEqual(0)
+  expect(addFirst.getIndexOnOriginal(1)).toEqual(0)
+  expect(addFirst.getIndexOnOriginal(0)).toEqual(0)
+
+  const removeFirst = createStringTracker('hello world').remove(0, 2).add(0, 'foo')
+  expect(removeFirst.getIndexOnOriginal(4)).toEqual(3)
+  expect(removeFirst.getIndexOnOriginal(3)).toEqual(2)
+  expect(removeFirst.getIndexOnOriginal(2)).toEqual(0)
+  expect(removeFirst.getIndexOnOriginal(1)).toEqual(0)
+  expect(removeFirst.getIndexOnOriginal(0)).toEqual(0)
+})
+
 // getIndexOnModified
 it('getIndexOnModified should return modified string length when called with original string length', () => {
   const trackedStr = getTrackedStr(8)
@@ -198,6 +228,20 @@ it('getIndexOnModified should return modified string length when called with ori
 
 it('getIndexOnModified should throw a RangeError when called with a negative number', () => {
   expect(() => createStringTracker('asd').getIndexOnModified(-1))
+})
+
+it('getIndexOnModified should return index of char order independent', () => {
+  const addFirst = createStringTracker('hello world').add(0, 'foo').remove(3, 5)
+  expect(addFirst.getIndexOnModified(3)).toEqual(4)
+  expect(addFirst.getIndexOnModified(2)).toEqual(3)
+  expect(addFirst.getIndexOnModified(1)).toEqual(3)
+  expect(addFirst.getIndexOnModified(0)).toEqual(3)
+
+  const removeFirst = createStringTracker('hello world').remove(0, 2).add(0, 'foo')
+  expect(removeFirst.getIndexOnModified(3)).toEqual(4)
+  expect(removeFirst.getIndexOnModified(2)).toEqual(3)
+  expect(removeFirst.getIndexOnModified(1)).toEqual(3)
+  expect(removeFirst.getIndexOnModified(0)).toEqual(3)
 })
 
 it('should return the length of the modified string when the index on original is the last change', () => {

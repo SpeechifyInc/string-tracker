@@ -130,17 +130,23 @@ export const getPosOffset = (pos: FullPosition) => pos[2]
 export const isAdd = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Add
 export const isRemove = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Remove
 export const isString = (change: Change | undefined) => typeof change === 'string'
+
 export const getChangeText = (change: Change): string => (typeof change === 'string' ? change : change[1])
+export const getChangesTextImpl = (changes: Change[], shouldSkipChange: (change: Change) => boolean): string =>
+  changes.reduce<string>((str, change) => str + (shouldSkipChange(change) ? '' : getChangeText(change)), '')
+export const getChangesText = (changes: Change[]): string => getChangesTextImpl(changes, isRemove)
+export const getChangesOriginalText = (changes: Change[]): string => getChangesTextImpl(changes, isAdd)
+
 export const getChangeLength = (change: Change) => getChangeText(change).length
 export const getTypeBasedChangeLength = (change: Change) => getChangeLength(change) * (isRemove(change) ? -1 : 1)
-export const getChangesCharCountImpl = (changes: Change[], shouldSkipChange: (change: Change) => boolean = isRemove) =>
+export const getChangesTextLengthImpl = (changes: Change[], shouldSkipChange: (change: Change) => boolean = isRemove) =>
   changes.reduce((length, change) => length + (shouldSkipChange(change) ? 0 : getChangeLength(change)), 0)
-export const getChangesCharCount = (changes: Change[]) => getChangesCharCountImpl(changes, isRemove)
-export const getChangesOriginalCharCount = (changes: Change[]) => getChangesCharCountImpl(changes, isAdd)
+export const getChangesTextLength = (changes: Change[]) => getChangesTextLengthImpl(changes, isRemove)
+export const getChangesOriginalTextLength = (changes: Change[]) => getChangesTextLengthImpl(changes, isAdd)
 
 export const createChunk = (changes: Change[]): ChangeChunk => [
-  getChangesCharCount(changes),
-  getChangesOriginalCharCount(changes),
+  getChangesTextLength(changes),
+  getChangesOriginalTextLength(changes),
   changes.length === 0 ? [''] : changes,
 ]
 
@@ -209,6 +215,16 @@ export const cleanChanges = (chunks: ChangeChunk[], startPos: Position, endPos: 
         currChange--
         endIndex--
       }
+
+      // Ensure that changes are ALWAYS in the order of [add, remove]. Never [remove, add]
+      if (isRemove(prevChange) && isAdd(change)) {
+        const startPos = getPrevPos(chunks, currPosition)
+        const endPos = getNextPos(chunks, currPosition)
+
+        // [remove, add] -> [add, remove]
+        removeChangesBetweenPositions(chunks, startPos, endPos)
+        addChangesAtPosition(chunks, startPos, [change, prevChange])
+      }
     }
   }
 }
@@ -217,8 +233,8 @@ export const addChangesAtPosition = (chunks: ChangeChunk[], pos: Position, chang
   // Nothing to do
   if (changes.length === 0) return
 
-  const charsAdded = getChangesCharCount(changes)
-  const charsRemoved = getChangesOriginalCharCount(changes)
+  const charsAdded = getChangesTextLength(changes)
+  const charsRemoved = getChangesOriginalTextLength(changes)
   const chunk = chunks[pos[0]]
 
   const chunkChanges = getChunkChanges(chunk).slice()
@@ -241,8 +257,8 @@ export const removeChangesBetweenPositions = (chunks: ChangeChunk[], startPos: P
 
     const clonedChanges = chunkChanges.slice()
     const removedChanges = clonedChanges.splice(startIndex, numToRemove)
-    const charsRemoved = getChangesCharCount(removedChanges)
-    const charsAdded = getChangesOriginalCharCount(removedChanges)
+    const charsRemoved = getChangesTextLength(removedChanges)
+    const charsAdded = getChangesOriginalTextLength(removedChanges)
 
     chunks[currChunk] = [chunks[currChunk][0] - charsRemoved, chunks[currChunk][1] - charsAdded, clonedChanges]
   }
@@ -257,8 +273,7 @@ export const replaceChanges = (
   chunks: ChangeChunk[],
   startPos: Position,
   endPos: Position,
-  newChanges: Change[],
-  preventClean?: boolean
+  newChanges: Change[]
 ): number => {
   // 1. Add new changes to the final chunk
   addChangesAtPosition(chunks, endPos, newChanges)
@@ -267,7 +282,7 @@ export const replaceChanges = (
   removeChangesBetweenPositions(chunks, startPos, endPos)
 
   // 3. Clean the chunks
-  if (!preventClean) cleanChanges(chunks, startPos, addToPosition(chunks, startPos, newChanges.length + 1))
+  cleanChanges(chunks, startPos, addToPosition(chunks, startPos, newChanges.length + 1))
 
   // 4. Split chunks if necessary
   for (let currChunk = startPos[0]; currChunk <= endPos[0]; currChunk++) {
