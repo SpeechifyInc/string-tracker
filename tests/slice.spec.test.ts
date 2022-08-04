@@ -1,4 +1,4 @@
-import { createStringTracker, StringTracker, StringTrackerSymbol } from '../src'
+import { createStringTracker, StringOp, StringTracker } from '../src'
 import { validateChanges, getModifiedFromChanges } from './helpers'
 
 function createSliceTest(str: string, start?: any, end?: any) {
@@ -23,10 +23,27 @@ it('should include the beginning changes when slicing from 0', () => {
   expect(tracker.get()).toEqual('this is my word')
 })
 
-it('should include the ending changes when slicing from end', () => {
+it('should include the ending remove change when slicing to the end', () => {
   const tracker = createStringTracker('this is my word aaa').remove(15)
-  expect(tracker.slice(0).getOriginal()).toEqual('this is my word aaa')
-  expect(tracker.slice(0, 16).get()).toEqual('this is my word')
+  expect(tracker.slice().getOriginal()).toEqual('this is my word aaa')
+  expect(tracker.slice().get()).toEqual('this is my word')
+  expect(tracker.slice(0, 15).getOriginal()).toEqual('this is my word aaa')
+  expect(tracker.slice(0, 15).get()).toEqual('this is my word')
+})
+
+it('should not include the ending remove change when slicing to the last character', () => {
+  const tracker = createStringTracker('this is my word aaa').remove(15)
+  expect(tracker.slice(0, 14).getOriginal()).toEqual('this is my wor')
+  expect(tracker.slice(0, 14).get()).toEqual('this is my wor')
+})
+
+it('should not include remove further than end of string', () => {
+  const tracker = createStringTracker('   hello world   test sentence').remove(0, 3).remove(11, 14)
+  expect(tracker.slice(0, 10).getChanges()).toEqual([[StringOp.Remove, '   '], 'hello worl'])
+  expect(tracker.slice(0, 11).getChanges()).toEqual([[StringOp.Remove, '   '], 'hello world'])
+  expect(tracker.slice(0, 12).getChanges()).toEqual([[StringOp.Remove, '   '], 'hello world', [StringOp.Remove, '   '], 't'])
+  expect(tracker.slice(10).getChanges()).toEqual(['d', [StringOp.Remove, '   '], 'test sentence'])
+  expect(tracker.slice(11).getChanges()).toEqual([[StringOp.Remove, '   '], 'test sentence'])
 })
 
 it('should throw when not called on a StringTracker', () => {

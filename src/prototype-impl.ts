@@ -2,9 +2,14 @@ import { createStringTracker, FullPosition, StringTracker } from '.'
 import {
   getChange,
   getChangeLength,
+  getChangesOriginalText,
+  getChangesText,
+  getChangesTextLength,
   getChangeText,
   getPosChangeIndex,
   getPosOffset,
+  getPrevPos,
+  isLowestPos,
   isRemove,
   sliceChange,
   stringToRegex,
@@ -169,6 +174,7 @@ export function replaceAll(
  * @param start The index to the beginning of the specified portion of StringTracker.
  * @param end The index to the end of the specified portion of StringTracker. The substring includes the characters up to, but not including, the character indicated by end.
  * If this value is not specified, the substring continues to the end of StringTracker.
+ * NOTE: Remove changes on the boundary of the start index will be included. Remove changes on the boundary of the end index will not be included
  */
 export function slice(this: StringTracker, startIndex: number = 0, endIndex?: number): StringTracker {
   // Throw TypeError when attempting to call this function on an object that does not contain
@@ -193,40 +199,30 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
   const offset = getPosOffset(position)
   const change = getChange(this.getChangeChunks(), position)
 
-  const slicedOriginalStr = this.getOriginal().slice(
-    startIndex === 0 ? 0 : this.getIndexOnOriginal(startIndex),
-    this.getIndexOnOriginal(sanitizedEndIndex)
-  )
-
   const slicedChanges = [sliceChange(change, offset, offset + sliceLength)]
 
-  if (getChangeLength(slicedChanges[0]) === sliceLength)
-    // Early return when the single change contains all the required content
-    return createStringTracker(slicedOriginalStr, {
-      initialModified: slicedChanges.map(getChangeText).join(''),
-      initialChanges: slicedChanges,
-    })
+  // Ensure that we always include a Remove change if there's one before and our offset is 0
+  if (offset === 0 && !isLowestPos(position)) {
+    const changeChunks = this.getChangeChunks()
+    const previousChange = getChange(changeChunks, getPrevPos(changeChunks, position))
+    if (isRemove(previousChange)) slicedChanges.unshift(previousChange)
+  }
 
   for (const change of this.getChanges().slice(getPosChangeIndex(position) + 1)) {
+    const slicedChangesLength = getChangesTextLength(slicedChanges)
+    const charsToAdd = sliceLength - slicedChangesLength
+    if (charsToAdd <= 0 && sanitizedEndIndex !== this.length) break
+
     if (isRemove(change)) {
       slicedChanges.push(change)
       continue
     }
-    const slicedChangesLength = slicedChanges.reduce(
-      (length, change) => length + (isRemove(change) ? 0 : getChangeLength(change)),
-      0
-    )
-    const charsToAdd = sliceLength - slicedChangesLength
-    if (charsToAdd <= 0) break
 
     slicedChanges.push(getChangeLength(change) <= charsToAdd ? change : sliceChange(change, 0, charsToAdd))
   }
 
-  return createStringTracker(slicedOriginalStr, {
-    initialModified: slicedChanges
-      .filter((change) => !isRemove(change))
-      .map(getChangeText)
-      .join(''),
+  return createStringTracker(getChangesOriginalText(slicedChanges), {
+    initialModified: getChangesText(slicedChanges),
     initialChanges: slicedChanges,
   })
 }
