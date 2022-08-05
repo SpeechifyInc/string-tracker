@@ -178,54 +178,50 @@ export const splitChunk = (chunk: ChangeChunk) => {
 // Side effect helpers
 //---------------
 export const cleanChanges = (chunks: ChangeChunk[], startPos: Position, endPos: Position) => {
-  for (let currChunk = startPos[0]; currChunk <= endPos[0] && currChunk < chunks.length; currChunk++) {
-    let chunkChanges = getChunkChanges(chunks[currChunk])
-    let startIndex = startPos[0] === currChunk ? startPos[1] : 0
-    let endIndex = endPos[0] === currChunk ? endPos[1] : chunkChanges.length
+  const { getChange, getNextPos, getPrevPos } = getPosHelpers(chunks)
+  let currentPos = startPos
+  while ((currentPos[0] !== endPos[0] || currentPos[1] !== endPos[1]) && !isHighestPos(chunks, currentPos)) {
+    const change = getChange(currentPos)
 
-    for (let currChange = startIndex; currChange < endIndex && currChange < chunkChanges.length; currChange++) {
-      const currPosition = [currChunk, currChange] as ChangePosition
-      const change = chunkChanges[currChange]
-      const changeTypeChecker = isAdd(change) ? isAdd : isRemove(change) ? isRemove : isString
+    if (getChangeLength(change) === 0) {
+      endPos = getPrevPos(endPos)
+      removeChangesBetweenPositions(chunks, currentPos, getNextPos(currentPos))
+      continue
+    }
 
-      // Remove empty changes
-      if (getChangeLength(change) === 0) {
-        removeChangesBetweenPositions(chunks, currPosition, getNextPos(chunks, currPosition))
-        chunkChanges = getChunkChanges(chunks[currChunk])
-        currChange--
-        endIndex--
-        continue
-      }
-
-      // Ignore first change
-      if (isLowestPos([currChunk, currChange])) continue
-
-      // Combine two changes next to each other
-      const prevChange = getChange(chunks, getPrevPos(chunks, [currChunk, currChange]))
-      if (changeTypeChecker(prevChange)) {
-        const newChange = replaceChangeText(change, getChangeText(prevChange as Change) + getChangeText(change))
-        const newChanges = getChangeLength(newChange) > 0 ? [newChange] : []
-
-        const startPos = getPrevPos(chunks, currPosition)
-        const endPos = getNextPos(chunks, currPosition)
-        removeChangesBetweenPositions(chunks, startPos, endPos)
-        addChangesAtPosition(chunks, startPos, newChanges)
-
-        chunkChanges = getChunkChanges(chunks[currChunk])
-        currChange--
-        endIndex--
-      }
+    if (!isLowestPos(currentPos)) {
+      const prevChange = getChange(getPrevPos(currentPos))
 
       // Ensure that changes are ALWAYS in the order of [add, remove]. Never [remove, add]
       if (isRemove(prevChange) && isAdd(change)) {
-        const startPos = getPrevPos(chunks, currPosition)
-        const endPos = getNextPos(chunks, currPosition)
+        const startPos = getPrevPos(currentPos)
+        const endPos = getNextPos(currentPos)
 
         // [remove, add] -> [add, remove]
         removeChangesBetweenPositions(chunks, startPos, endPos)
         addChangesAtPosition(chunks, startPos, [change, prevChange])
+
+        currentPos = getPrevPos(currentPos)
+        continue
+      }
+
+      // Combine two changes next to each other
+      const changeTypeChecker = isAdd(change) ? isAdd : isRemove(change) ? isRemove : isString
+      if (changeTypeChecker(prevChange)) {
+        endPos = getPrevPos(endPos)
+
+        const startPos = getPrevPos(currentPos)
+        const newChange = replaceChangeText(change, getChangeText(prevChange) + getChangeText(change))
+
+        removeChangesBetweenPositions(chunks, startPos, getNextPos(currentPos))
+        addChangesAtPosition(chunks, startPos, [newChange])
+
+        currentPos = getPrevPos(currentPos)
+        continue
       }
     }
+
+    currentPos = getNextPos(currentPos)
   }
 }
 
@@ -282,7 +278,7 @@ export const replaceChanges = (
   removeChangesBetweenPositions(chunks, startPos, endPos)
 
   // 3. Clean the chunks
-  cleanChanges(chunks, startPos, addToPosition(chunks, startPos, newChanges.length + 1))
+  cleanChanges(chunks, startPos, addToPosition(chunks, startPos, newChanges.length + 2))
 
   // 4. Split chunks if necessary
   for (let currChunk = startPos[0]; currChunk <= endPos[0]; currChunk++) {
