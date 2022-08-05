@@ -1,5 +1,5 @@
 import { StringTracker, Change } from '../src'
-import { getChangeText, getChangeLength, CHUNK_SIZE, isAdd, isRemove } from '../src/helpers'
+import { getChangeText, getChangeLength, CHUNK_SIZE, isAdd, isRemove, getChangeType } from '../src/helpers'
 import { ok, strictEqual } from 'assert'
 
 /** Checks if changes are correct based on the modified and original string */
@@ -28,7 +28,6 @@ export function assertValidTracker(
   return true
 }
 
-const getChangeType = (change: Change) => (isAdd(change) ? 'add' : isRemove(change) ? 'remove' : 'string')
 
 /**
  * Useful for verifying that the Remove and regular string changes are correct.

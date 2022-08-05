@@ -5,8 +5,9 @@ import {
   getChangesOriginalText,
   getChangesText,
   getChangesTextLength,
-  getChangeText,
+  getChunkChanges,
   getPosChangeIndex,
+  getPosChunkIndex,
   getPosOffset,
   getPrevPos,
   isLowestPos,
@@ -208,7 +209,10 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
     if (isRemove(previousChange)) slicedChanges.unshift(previousChange)
   }
 
-  for (const change of this.getChanges().slice(getPosChangeIndex(position) + 1)) {
+  for (const change of this.getChangeChunks()
+    .slice(getPosChunkIndex(position))
+    .flatMap(getChunkChanges)
+    .slice(getPosChangeIndex(position) + 1)) {
     const slicedChangesLength = getChangesTextLength(slicedChanges)
     const charsToAdd = sliceLength - slicedChangesLength
     if (charsToAdd <= 0 && sanitizedEndIndex !== this.length) break

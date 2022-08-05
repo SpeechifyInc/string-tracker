@@ -130,6 +130,7 @@ export const getPosOffset = (pos: FullPosition) => pos[2]
 export const isAdd = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Add
 export const isRemove = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Remove
 export const isString = (change: Change | undefined) => typeof change === 'string'
+export const getChangeType = (change: Change) => (isAdd(change) ? 'add' : isRemove(change) ? 'remove' : 'string')
 
 export const getChangeText = (change: Change): string => (typeof change === 'string' ? change : change[1])
 export const getChangesTextImpl = (changes: Change[], shouldSkipChange: (change: Change) => boolean): string =>
@@ -149,6 +150,12 @@ export const createChunk = (changes: Change[]): ChangeChunk => [
   getChangesOriginalTextLength(changes),
   changes.length === 0 ? [''] : changes,
 ]
+
+export const createChunks = (changes: Change[]): ChangeChunk[] =>
+  new Array(Math.ceil(changes.length / CHUNK_SIZE))
+    .fill(0)
+    .map((_, i) => changes.slice(i * CHUNK_SIZE, i * CHUNK_SIZE + CHUNK_SIZE))
+    .map(createChunk)
 
 //---------------
 // Chunks
@@ -177,137 +184,75 @@ export const splitChunk = (chunk: ChangeChunk) => {
 //---------------
 // Side effect helpers
 //---------------
-export const cleanChanges = (chunks: ChangeChunk[], startPos: Position, endPos: Position) => {
-  const { getChange, getNextPos, getPrevPos } = getPosHelpers(chunks)
-  let currentPos = startPos
-  while ((currentPos[0] !== endPos[0] || currentPos[1] !== endPos[1]) && !isHighestPos(chunks, currentPos)) {
-    const change = getChange(currentPos)
+export const concatChanges = (baseChanges: Change[], changesToAdd: Change[]) => {
+  const changes = baseChanges.slice()
 
-    if (getChangeLength(change) === 0) {
-      endPos = getPrevPos(endPos)
-      removeChangesBetweenPositions(chunks, currentPos, getNextPos(currentPos))
-      continue
-    }
+  for (const change of changesToAdd) {
+    if (getChangeLength(change) === 0) continue
+    changes.push(change)
 
-    if (!isLowestPos(currentPos)) {
-      const prevChange = getChange(getPrevPos(currentPos))
+    let index = changes.length - 1
+    while (index < changes.length) {
+      const change = changes[index]
+      const prevChange = changes[index - 1]
+      if (prevChange === undefined) {
+        index++
+        continue
+      }
 
       // Ensure that changes are ALWAYS in the order of [add, remove]. Never [remove, add]
       if (isRemove(prevChange) && isAdd(change)) {
-        const startPos = getPrevPos(currentPos)
-        const endPos = getNextPos(currentPos)
-
-        // [remove, add] -> [add, remove]
-        removeChangesBetweenPositions(chunks, startPos, endPos)
-        addChangesAtPosition(chunks, startPos, [change, prevChange])
-
-        currentPos = getPrevPos(currentPos)
+        // Ensure that changes are ALWAYS in the order of [add, remove]. Never [remove, add]
+        changes.splice(index - 1, 2, change, prevChange)
+        index--
         continue
       }
 
-      // Combine two changes next to each other
-      const changeTypeChecker = isAdd(change) ? isAdd : isRemove(change) ? isRemove : isString
-      if (changeTypeChecker(prevChange)) {
-        endPos = getPrevPos(endPos)
-
-        const startPos = getPrevPos(currentPos)
-        const newChange = replaceChangeText(change, getChangeText(prevChange) + getChangeText(change))
-
-        removeChangesBetweenPositions(chunks, startPos, getNextPos(currentPos))
-        addChangesAtPosition(chunks, startPos, [newChange])
-
-        currentPos = getPrevPos(currentPos)
+      if (getChangeType(prevChange) === getChangeType(change)) {
+        changes.splice(index - 1, 2, replaceChangeText(change, getChangeText(prevChange) + getChangeText(change)))
+        index--
         continue
       }
+      index++
     }
-
-    currentPos = getNextPos(currentPos)
   }
+
+  return changes
 }
 
-export const addChangesAtPosition = (chunks: ChangeChunk[], pos: Position, changes: Change[]) => {
-  // Nothing to do
-  if (changes.length === 0) return
-
-  const charsAdded = getChangesTextLength(changes)
-  const charsRemoved = getChangesOriginalTextLength(changes)
-  const chunk = chunks[pos[0]]
-
-  const chunkChanges = getChunkChanges(chunk).slice()
-  chunkChanges.splice(pos[1], 0, ...changes)
-  chunks[pos[0]] = [chunk[0] + charsAdded, chunk[1] + charsRemoved, chunkChanges] as ChangeChunk
-}
-
-export const removeChangesBetweenPositions = (chunks: ChangeChunk[], startPos: Position, endPos: Position) => {
-  // TODO: Shortcut for identical positions
-  for (let currChunk = startPos[0]; currChunk <= endPos[0]; currChunk++) {
-    const chunkChanges = getChunkChanges(chunks[currChunk])
-    const startIndex = startPos[0] === currChunk ? startPos[1] : 0
-    const numToRemove = endPos[0] === currChunk ? endPos[1] - startIndex : chunkChanges.length - startIndex
-
-    const isRemovingChunk = numToRemove === chunkChanges.length
-    if (isRemovingChunk) {
-      chunks[currChunk] = [0, 0, []]
-      continue
-    }
-
-    const clonedChanges = chunkChanges.slice()
-    const removedChanges = clonedChanges.splice(startIndex, numToRemove)
-    const charsRemoved = getChangesTextLength(removedChanges)
-    const charsAdded = getChangesOriginalTextLength(removedChanges)
-
-    chunks[currChunk] = [chunks[currChunk][0] - charsRemoved, chunks[currChunk][1] - charsAdded, clonedChanges]
-  }
-}
-
-// TODO: Do we need to return that value?
 /**
  * Removes changes between two positions and insert newChanges in their place.
  * Return value is the number of chunks removed during this process
  */
-export const replaceChanges = (
-  chunks: ChangeChunk[],
-  startPos: Position,
-  endPos: Position,
-  newChanges: Change[]
-): number => {
-  // 1. Add new changes to the final chunk
-  addChangesAtPosition(chunks, endPos, newChanges)
+export const replaceChanges = (chunks: ChangeChunk[], startPos: Position, endPos: Position, changesToAdd: Change[]) => {
+  // Get the index of the chunk before and after
+  const startChunkIndex = Math.max(startPos[0] - 1, 0)
+  const endChunkIndex = Math.min(endPos[0] + 1, chunks.length - 1)
 
-  // 2. Remove changes between starting and ending positions
-  removeChangesBetweenPositions(chunks, startPos, endPos)
+  // Get the changes between the start chunk and the start position
+  const changesBefore = chunks
+    .slice(startChunkIndex, startPos[0])
+    .flatMap(getChunkChanges)
+    .concat(getChunkChanges(chunks[startPos[0]]).slice(0, startPos[1]))
+  // Get the changes between the end position and the end of the end chunk
+  const changesAfter = getChunkChanges(chunks[endPos[0]])
+    .slice(endPos[1])
+    .concat(chunks.slice(endPos[0] + 1, endChunkIndex + 1).flatMap(getChunkChanges))
 
-  // 3. Clean the chunks
-  cleanChanges(chunks, startPos, addToPosition(chunks, startPos, newChanges.length + 2))
+  // Combine all the changes together
+  const combinedChanges = concatChanges(changesBefore, changesToAdd.concat(changesAfter))
 
-  // 4. Split chunks if necessary
-  for (let currChunk = startPos[0]; currChunk <= endPos[0]; currChunk++) {
-    const chunk = chunks[currChunk]
-    if (shouldChunkBeSplit(chunk)) {
-      const newChunks = splitChunk(chunk)
-      chunks.splice(currChunk, 1, ...newChunks)
-      currChunk += newChunks.length - 1
-    }
-  }
-
-  // 5. Remove empty chunks from 1. We do this last to prevent changing the indices for simplicity FIXME: Indices have probably already changed
-  let chunksRemoved = 0
-  for (let currChunk = startPos[0]; currChunk <= Math.min(endPos[0], chunks.length - 1); currChunk++) {
-    if (getChunkChanges(chunks[currChunk]).length !== 0) continue
-    chunks.splice(currChunk, 1)
-    currChunk--
-    chunksRemoved++
-  }
+  // Replace the previous chunks with our new chunks
+  chunks.splice(startChunkIndex, endChunkIndex + 1 - startChunkIndex, ...createChunks(combinedChanges))
 
   // TODO: Check if this is actually necessary
-  // 6. Special case since we never want to have an empty array of chunks
+  // Special case since we never want to have an empty array of chunks
   if (chunks.length === 0) {
     chunks.push([0, 0, ['']])
   }
   if (chunks.length === 1 && !getChunkChanges(chunks[0]).some((change) => !isRemove(change))) {
     chunks[0] = [chunks[0][0], chunks[0][1], ['', ...getChunkChanges(chunks[0])]]
   }
-  return chunksRemoved
 }
 
 export const replaceChange = (chunks: ChangeChunk[], pos: Position, change: Change) =>

@@ -88,7 +88,7 @@ function createRunner(numOfWords: number, numOfIterations: number) {
 
     // Assert the correctness of the tracker
     try {
-      assertValidTracker(tracker)
+      assertValidTracker(tracker, originalString, modifiedString)
     } catch (err) {
       console.log(chalk.bold.red(`Failed on iteration #${i}\n`))
       console.log(chalk.bold('-------- Before --------'))
