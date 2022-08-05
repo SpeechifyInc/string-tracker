@@ -1,5 +1,5 @@
 import { createStringTracker, StringOp, StringTracker } from '../src'
-import { validateChanges, getModifiedFromChanges } from './helpers'
+import { assertValidTracker, getModifiedFromChanges } from './helpers'
 
 function createSliceTest(str: string, start?: any, end?: any) {
   return () => runSliceTest(str, start, end)
@@ -13,12 +13,12 @@ function runSliceTest(str: string | StringTracker, start?: any, end?: any) {
 
   expect(trackerSlice.get()).toEqual(actualSlice)
   expect(getModifiedFromChanges(trackerSlice)).toEqual(actualSlice)
-  validateChanges(tracker)
+  assertValidTracker(tracker)
 }
 
 it('should include the beginning changes when slicing from 0', () => {
   const tracker = createStringTracker('aaa this is my word').remove(0, 4).slice(0)
-  validateChanges(tracker)
+  assertValidTracker(tracker)
   expect(tracker.getOriginal()).toEqual('aaa this is my word')
   expect(tracker.get()).toEqual('this is my word')
 })

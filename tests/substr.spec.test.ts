@@ -2,7 +2,7 @@
 // and are not from Test262
 
 import { createStringTracker } from "../src"
-import { validateChanges, getModifiedFromChanges } from './helpers'
+import { assertValidTracker, getModifiedFromChanges } from './helpers'
 
 function runSubstrTest(str: string, from?: any, length?: any) {
   const tracker = createStringTracker(str)
@@ -12,7 +12,7 @@ function runSubstrTest(str: string, from?: any, length?: any) {
 
   expect(trackerSubstring.get()).toStrictEqual(actualSubstring)
   expect(getModifiedFromChanges(trackerSubstring)).toStrictEqual(actualSubstring)
-  expect(validateChanges(tracker)).toEqual(true)
+  assertValidTracker(tracker)
 }
 
 it('should throw when not called on a StringTracker', () => {

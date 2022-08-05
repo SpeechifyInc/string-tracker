@@ -1,5 +1,5 @@
 import { createStringTracker } from '../src'
-import { validateChanges, getModifiedFromChanges } from './helpers'
+import { assertValidTracker, getModifiedFromChanges } from './helpers'
 
 function createReplaceTest(str: string, searchValue?: any, replacer?: any) {
   return () => runReplaceTest(str, searchValue, replacer)
@@ -13,7 +13,7 @@ function runReplaceTest(str: string, searchValue?: any, replacer?: any) {
 
   expect(trackerRepeat.get()).toEqual(actualRepeat)
   expect(getModifiedFromChanges(trackerRepeat)).toEqual(actualRepeat)
-  expect(validateChanges(tracker)).toEqual(true)
+  assertValidTracker(tracker)
 }
 
 it('should throw when not called on a StringTracker', () => {

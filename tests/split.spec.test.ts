@@ -1,5 +1,5 @@
 import { createStringTracker } from '../src'
-import { validateChanges, getModifiedFromChanges } from './helpers'
+import { getModifiedFromChanges, assertValidTracker } from './helpers'
 
 function createSplitTest(str: string, separator?: any, limit?: any) {
   return () => runSplitTest(str, separator, limit)
@@ -13,7 +13,7 @@ function runSplitTest(str: string, separator?: any, limit?: any) {
 
   expect(splitTrackers.map((tracker) => tracker.get())).toStrictEqual(actualSplit)
   expect(splitTrackers.map(getModifiedFromChanges)).toStrictEqual(actualSplit)
-  expect(splitTrackers.every(tracker => validateChanges(tracker))).toEqual(true)
+  for (const tracker of splitTrackers) assertValidTracker(tracker)
 }
 
 it('should throw when not called on a StringTracker', () => {

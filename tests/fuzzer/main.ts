@@ -1,13 +1,6 @@
 import { createStringTracker, StringOp, StringTracker } from '../../src'
 import { objects, predicates } from 'friendly-words'
-import {
-  getModifiedFromChanges,
-  getOriginalFromChanges,
-  validateChangeCleanliness,
-  validateChunksCharCount,
-  validateChunkSizes,
-} from '../helpers'
-import { strictEqual, ok } from 'assert'
+import { assertValidTracker } from '../helpers'
 import chalk from 'chalk'
 
 const logWithHeader = (header: string, ...body: any[]) => {
@@ -23,8 +16,6 @@ export function logTracker(tracker: StringTracker) {
     logWithHeader(`Chunk ${index}`, `Char Count: ${chunks[index][0]}`, `Changes`, chunks[index][1])
   }
 }
-
-// TODO: Use validateChanges function from helpers?
 
 const randBool = () => Math.random() > 0.5
 const randRange = (end: number, start: number = 0) => Math.floor(Math.random() * (end - start)) + start
@@ -97,27 +88,7 @@ function createRunner(numOfWords: number, numOfIterations: number) {
 
     // Assert the correctness of the tracker
     try {
-      strictEqual(tracker.getOriginal(), originalString, 'Tracker original string must be equal to original string')
-      strictEqual(tracker.get(), modifiedString, 'Tracker modified string must be equal to mimicked modified string')
-      strictEqual(
-        getModifiedFromChanges(tracker),
-        modifiedString,
-        `Tracker's string and add changes must equal the modified string`
-      )
-      strictEqual(
-        getOriginalFromChanges(tracker),
-        originalString,
-        `Tracker's string and remove changes must equal the original string`
-      )
-      ok(
-        validateChangeCleanliness(tracker),
-        'Tracker must not contain any empty changes or adjacent changes of the same type'
-      )
-      ok(
-        validateChunksCharCount(tracker),
-        `The chunk's char count must equal the length of all string and add changes in the chunk`
-      )
-      ok(validateChunkSizes(tracker), `Tracker must not contain any chunks larger than the chunk size * 2`)
+      assertValidTracker(tracker)
     } catch (err) {
       console.log(chalk.bold.red(`Failed on iteration #${i}\n`))
       console.log(chalk.bold('-------- Before --------'))

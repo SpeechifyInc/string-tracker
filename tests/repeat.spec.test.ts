@@ -1,5 +1,5 @@
 import { createStringTracker } from '../src'
-import { validateChanges, getModifiedFromChanges } from './helpers'
+import { assertValidTracker, getModifiedFromChanges } from './helpers'
 
 function createRepeatTest(str: string, count?: any) {
   return () => runRepeatTest(str, count)
@@ -13,7 +13,7 @@ function runRepeatTest(str: string, count?: any) {
 
   expect(trackerSubstring.get()).toStrictEqual(actualSubstring)
   expect(getModifiedFromChanges(trackerSubstring)).toStrictEqual(actualSubstring)
-  expect(validateChanges(tracker)).toEqual(true)
+  assertValidTracker(tracker)
 }
 
 it('should throw when not called on a StringTracker', () => {
