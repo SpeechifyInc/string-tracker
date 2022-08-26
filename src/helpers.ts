@@ -129,7 +129,7 @@ export const getPosOffset = (pos: FullPosition) => pos[2]
 //---------------
 export const isAdd = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Add
 export const isRemove = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Remove
-export const isString = (change: Change | undefined) => typeof change === 'string'
+export const isString = (change: Change | undefined): change is string => typeof change === 'string' || change instanceof String
 export const getChangeType = (change: Change) => (isAdd(change) ? 'add' : isRemove(change) ? 'remove' : 'string')
 
 export const getChangeText = (change: Change): string => (typeof change === 'string' ? change : change[1])
@@ -274,7 +274,7 @@ export const removeChange = (chunks: ChangeChunk[], pos: Position) => removeChan
 
 // TODO: Should text be a function originalText => replacementText
 export const replaceChangeText = (change: Change, text: string) =>
-  (typeof change === 'string' ? text : [change[0], text]) as Change
+  (isString(change) ? text : [change[0], text]) as Change
 
 export const sliceChange = (change: Change, startIndex = 0, endIndex = getChangeLength(change)): Change =>
-  typeof change === 'string' ? change.slice(startIndex, endIndex) : [change[0], change[1].slice(startIndex, endIndex)]
+  isString(change) ? change.slice(startIndex, endIndex) : [change[0], change[1].slice(startIndex, endIndex)]
