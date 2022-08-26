@@ -37,6 +37,12 @@ it('should not include the ending remove change when slicing to the last charact
   expect(tracker.slice(0, 14).get()).toEqual('this is my wor')
 })
 
+it('should include the ending remove change when slicing to the end of an empty string', () => {
+  const tracker = createStringTracker('this is my word').remove(15)
+  expect(tracker.remove(0, tracker.length).slice(0).getOriginal()).toEqual('this is my word')
+  expect(tracker.remove(0, tracker.length).slice(0).get()).toEqual('')
+})
+
 it('should not include remove further than end of string', () => {
   const tracker = createStringTracker('   hello world   test sentence').remove(0, 3).remove(11, 14)
   expect(tracker.slice(0, 10).getChanges()).toEqual([[StringOp.Remove, '   '], 'hello worl'])
