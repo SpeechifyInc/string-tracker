@@ -194,7 +194,6 @@ export function slice(this: StringTracker, startIndex: number = 0, endIndex?: nu
   sanitizedEndIndex = Math.round(Math.max(Math.min(sanitizedEndIndex, trackerLength), 0))
 
   const sliceLength = sanitizedEndIndex - startIndex
-  if (sliceLength <= 0) return createStringTracker('')
 
   const position = startIndex === 0 ? ([0, 0, 0] as FullPosition) : this.getPositionOfChange(startIndex)
   const offset = getPosOffset(position)
