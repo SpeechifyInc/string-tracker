@@ -118,10 +118,12 @@ export function replace(
     // Match index can never be undefined because the only case where it would be
     // is if we used the g flag. We handle this case with matchAll
     const startIndex = match.index! + indexOffset
+    const endIndex = startIndex + match[0].length
     // It is necessary to convert to string here since the following code is expecting a string and
     // the replacer function can return a non-string according to the spec and should be casted
     const strToAdd = String(replacerFunc(match[0], ...match.slice(1), match.index!, str))
-    tracker.remove(startIndex, startIndex + match[0].length, true)
+
+    tracker.remove(startIndex, endIndex, true)
     if (strToAdd.length > 0) tracker.add(startIndex, strToAdd, true)
 
     if (canDoReverseIteration) return 0

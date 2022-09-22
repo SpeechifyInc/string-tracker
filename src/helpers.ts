@@ -58,6 +58,23 @@ export function getOverlap(source: string, diff: string) {
   return 0
 }
 
+function getBeginningOverlap(a: string, b: string) {
+  let beginningOverlap = 0
+  for (; beginningOverlap < Math.min(a.length, b.length); beginningOverlap++) {
+    if (a[beginningOverlap] !== b[beginningOverlap]) break
+  }
+  return beginningOverlap
+}
+
+function getEndingOverlap(a: string, b: string) {
+  let endingOverlap = 0
+  for (; endingOverlap < Math.min(a.length, b.length); endingOverlap++) {
+    let index = a.length - endingOverlap - 1
+    if (a[index] !== b[index]) break
+  }
+  return endingOverlap
+}
+
 //---------------
 // Position
 //---------------
@@ -129,7 +146,8 @@ export const getPosOffset = (pos: FullPosition) => pos[2]
 //---------------
 export const isAdd = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Add
 export const isRemove = (change: Change | undefined) => typeof change !== 'string' && change?.[0] === StringOp.Remove
-export const isString = (change: Change | undefined): change is string => typeof change === 'string' || change instanceof String
+export const isString = (change: Change | undefined): change is string =>
+  typeof change === 'string' || change instanceof String
 export const getChangeType = (change: Change) => (isAdd(change) ? 'add' : isRemove(change) ? 'remove' : 'string')
 
 export const getChangeText = (change: Change): string => (typeof change === 'string' ? change : change[1])
@@ -184,6 +202,7 @@ export const splitChunk = (chunk: ChangeChunk) => {
 //---------------
 // Side effect helpers
 //---------------
+// TODO: Check for overlap between adjacent add and remove changes to find opportunities to simplify
 export const concatChanges = (baseChanges: Change[], changesToAdd: Change[]) => {
   const changes = baseChanges.slice()
 
@@ -206,6 +225,30 @@ export const concatChanges = (baseChanges: Change[], changesToAdd: Change[]) => 
         changes.splice(index - 1, 2, change, prevChange)
         index--
         continue
+      }
+
+      // Search for overlap between the two changes for simplification
+      if (isAdd(prevChange) && isRemove(change)) {
+        const beginningOverlap = getBeginningOverlap(getChangeText(prevChange), getChangeText(change))
+        const endingOverlap = getEndingOverlap(getChangeText(prevChange), getChangeText(change))
+
+        if (beginningOverlap > 0 || endingOverlap > 0) {
+          const minLength = Math.min(getChangeLength(prevChange), getChangeLength(change))
+          const getNonOverlap = (text: string) =>
+            text.slice(beginningOverlap, endingOverlap > 0 ? -endingOverlap : Infinity)
+          const newChanges = [
+            getChangeText(change).slice(0, beginningOverlap),
+            replaceChangeText(prevChange, getNonOverlap(getChangeText(prevChange))),
+            replaceChangeText(change, getNonOverlap(getChangeText(change))),
+          ]
+          if (endingOverlap > 0 && minLength !== beginningOverlap) {
+            newChanges.push(getChangeText(change).slice(-Math.min(endingOverlap, minLength - beginningOverlap)))
+          }
+
+          changes.splice(index - 1, 2, ...newChanges.filter(getChangeLength))
+          index--
+          continue
+        }
       }
 
       if (getChangeType(prevChange) === getChangeType(change)) {
