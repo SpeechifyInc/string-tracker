@@ -11,6 +11,10 @@
     ".": {
       "import": "./dist/mjs/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./helpers": {
+      "import": "./dist/mjs/helpers.js",
+      "require": "./dist/cjs/helpers.js"
     }
   },
   "sideEffects": false,
