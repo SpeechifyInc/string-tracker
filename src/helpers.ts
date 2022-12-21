@@ -58,7 +58,7 @@ export function getOverlap(source: string, diff: string) {
   return 0
 }
 
-function getBeginningOverlap(a: string, b: string) {
+export function getBeginningOverlap(a: string, b: string) {
   let beginningOverlap = 0
   for (; beginningOverlap < Math.min(a.length, b.length); beginningOverlap++) {
     if (a[beginningOverlap] !== b[beginningOverlap]) break
@@ -66,11 +66,10 @@ function getBeginningOverlap(a: string, b: string) {
   return beginningOverlap
 }
 
-function getEndingOverlap(a: string, b: string) {
+export function getEndingOverlap(a: string, b: string) {
   let endingOverlap = 0
   for (; endingOverlap < Math.min(a.length, b.length); endingOverlap++) {
-    let index = a.length - endingOverlap - 1
-    if (a[index] !== b[index]) break
+    if (a[a.length - endingOverlap - 1] !== b[b.length - endingOverlap - 1]) break
   }
   return endingOverlap
 }

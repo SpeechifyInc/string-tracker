@@ -2,6 +2,8 @@ import { createStringTracker, StringTracker, StringTrackerSymbol } from '../src'
 import {
   addToPosition,
   createChunk,
+  getBeginningOverlap,
+  getEndingOverlap,
   getNextPos,
   getPrevPos,
   isHighestPos,
@@ -169,3 +171,24 @@ describe('addToPosition', () => {
     expect(addToPosition(chunks, [0, 0], 5)).toStrictEqual([1, 1])
   })
 })
+
+describe('getBeginningOverlap', () => {
+  it('should return 0 for empty strings', () => expect(getBeginningOverlap('', '')).toEqual(0))
+  it('should return string length for equal strings', () => expect(getBeginningOverlap('asd  ', 'asd  ')).toEqual(5))
+  it('should return 0 for reverse overlapping spaces', () => expect(getBeginningOverlap('  asd', 'asd  ')).toEqual(0))
+  it('should return 0 for overlapping ending chars', () => expect(getBeginningOverlap('ok  ', 'foo  ')).toEqual(0))
+  it('should return 1 for overlapping spaces', () => expect(getBeginningOverlap(' b', ' a')).toEqual(1))
+  it('should return 2 for overlapping letters', () =>
+    expect(getBeginningOverlap('ok-foo bar', 'ok hello world')).toEqual(2))
+})
+
+describe('getEndingOverlap', () => {
+  it('should return 0 for empty strings', () => expect(getEndingOverlap('', '')).toEqual(0))
+  it('should return string length for equal strings', () => expect(getEndingOverlap('asd  ', 'asd  ')).toEqual(5))
+  it('should return 0 for reverse overlapping spaces', () => expect(getEndingOverlap('  asd', 'asd  ')).toEqual(0))
+  it('should return 0 for overlapping beginning chars', () => expect(getEndingOverlap('  ok', '  foo')).toEqual(0))
+  it('should return 1 for overlapping spaces', () => expect(getEndingOverlap('b ', 'a ')).toEqual(1))
+  it('should return 2 for overlapping letters', () =>
+    expect(getEndingOverlap('foo bar-ok', 'hello world ok')).toEqual(2))
+})
+
