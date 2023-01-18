@@ -103,10 +103,6 @@ dist
 # TernJS port file
 .tern-port
 
-# Package locks
-package-lock.json
-yarn.lock
-
 # IDEs
 .vscode
 .idea
