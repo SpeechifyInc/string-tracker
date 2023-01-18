@@ -34,4 +34,4 @@ jobs:
           node-version-file: '.nvmrc'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@speechify'
-      - run: npm build
+      - run: npm run build
