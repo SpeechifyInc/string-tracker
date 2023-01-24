@@ -17,7 +17,7 @@ jobs:
           cache: 'npm'
           node-version-file: '.node-version'
           registry-url: 'https://npm.pkg.github.com'
-          scope: '@speechify'
+          scope: '@speechifyinc'
       - run: npm ci
       - run: npm test
 
@@ -33,7 +33,7 @@ jobs:
           cache: 'npm'
           node-version-file: '.node-version'
           registry-url: 'https://npm.pkg.github.com'
-          scope: '@speechify'
+          scope: '@speechifyinc'
       - run: npm ci
       - run: npm run build
       - run: npm publish
