@@ -228,11 +228,15 @@ export const concatChanges = (baseChanges: Change[], changesToAdd: Change[]) => 
 
       // Search for overlap between the two changes for simplification
       if (isAdd(prevChange) && isRemove(change)) {
+        const minLength = Math.min(getChangeLength(prevChange), getChangeLength(change))
         const beginningOverlap = getBeginningOverlap(getChangeText(prevChange), getChangeText(change))
-        const endingOverlap = getEndingOverlap(getChangeText(prevChange), getChangeText(change))
+        // Clamp so a repeated boundary char (' ' vs '  ') isn't counted as both beginning and ending overlap
+        const endingOverlap = Math.min(
+          getEndingOverlap(getChangeText(prevChange), getChangeText(change)),
+          minLength - beginningOverlap
+        )
 
         if (beginningOverlap > 0 || endingOverlap > 0) {
-          const minLength = Math.min(getChangeLength(prevChange), getChangeLength(change))
           const getNonOverlap = (text: string) =>
             text.slice(beginningOverlap, endingOverlap > 0 ? -endingOverlap : Infinity)
           const newChanges = [
@@ -240,9 +244,7 @@ export const concatChanges = (baseChanges: Change[], changesToAdd: Change[]) => 
             replaceChangeText(prevChange, getNonOverlap(getChangeText(prevChange))),
             replaceChangeText(change, getNonOverlap(getChangeText(change))),
           ]
-          if (endingOverlap > 0 && minLength !== beginningOverlap) {
-            newChanges.push(getChangeText(change).slice(-Math.min(endingOverlap, minLength - beginningOverlap)))
-          }
+          if (endingOverlap > 0) newChanges.push(getChangeText(change).slice(-endingOverlap))
 
           changes.splice(index - 1, 2, ...newChanges.filter(getChangeLength))
           index--
